@@ -2,7 +2,9 @@
     List nearby places
 """
 
-import api_interface
+import api_interfaces
+import graph_builder
+
 from flask import Flask, request, render_template, jsonify
 
 WIKI_URL = "https://en.wikipedia.org/wiki/{}"
@@ -12,23 +14,10 @@ APP.config['TEMPLATES_AUTO_RELOAD'] = True
 
 TARGETS = ['Ernest_Shackleton']
 
-nearby_finder = api_interface.NearbyFinder()
-il_finder = api_interface.InLinkFinder()
-ol_finder = api_interface.OutLinkFinder()
+nearby_finder = api_interfaces.NearbyFinder()
+il_finder = api_interfaces.InLinkFinder()
+ol_finder = api_interfaces.OutLinkFinder()
 
-def expand_graph(seed_nodes, max_depth=1, in_cutoff=5000, out_cutoff=500):
-
-    nodes = set(seed_nodes)
-    nodes_visited = set()
-
-    for d in range(0, max_depth):
-        for n in nodes - nodes_visited:
-            in_links = il_finder.get_links(n, cutoff=in_cutoff)
-            out_links = ol_finder.get_links(n, cutoff=out_cutoff)
-            nodes.update(in_links)
-            nodes.update(out_links)
-            nodes_visited.add(n)
-    return nodes
 
 
 @APP.route('/', methods=['GET', 'POST'])
