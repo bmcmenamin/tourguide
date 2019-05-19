@@ -76,18 +76,22 @@ class BaseQuerier(abc.ABC):
 class OutLinkFinder(BaseQuerier):
 
     QUERY_STRING = """
-        SELECT
-            gt_page_id AS from_node
-            , gt_link_to_id AS to_node
+        SELECT DISTINCT
+            gt_page_title AS node_name
         FROM
-            page_links
+            pagelinks AS pl
+            JOIN pages ON page_id=gt_page_id
         WHERE
-            gt_page_id = %s
+            page_title = %s
+            AND page_namespace = 0
+            AND pl_namespace = 0
+            AND pl_from_namespace = 0
+        ;
     """
 
     def get_payload(self, params=tuple()):
         results = self.execute_query(params)
-        return [res.get("to_node") for res in results]
+        return [res.get("node_name") for res in results]
 
 
 class InLinkFinder(BaseRequester):
@@ -97,21 +101,35 @@ class InLinkFinder(BaseRequester):
     #
 
     QUERY_STRING = """
-        SELECT
-            gt_page_id AS from_node
-            , gt_link_to_id AS to_node
+        SELECT DISTINCT
+            page_title AS node_name
         FROM
-            page_links
+            pagelinks
+            JOIN pages ON page_id=gt_page_id
         WHERE
-            gt_link_to_id = %s
+            pl_title = %s
+            AND page_namespace = 0
+            AND pl_namespace = 0
+            AND pl_from_namespace = 0
+        ;
     """
 
 
 class CategoryFinder(BaseRequester):
-    QUERY_STRING = ""
+    QUERY_STRING = """
+        SELECT DISTINCT
+            cat_name AS cat_name
+        FROM
+            category_links
+            JOIN pages ON USING(page_id)
+        WHERE
+            pl_title = %s
+            AND page_namespace = 0
+        ;
+    """
     def get_payload(self, params=tuple()):
         results = self.execute_query(params)
-        return [res.get("from_node") for res in results]
+        return [res.get("cat_name") for res in results]
 
 
 class NearbyFinder(BaseRequester):
@@ -122,13 +140,16 @@ class NearbyFinder(BaseRequester):
 
     QUERY_STRING = """
         SELECT
-            gt_page_id
+            page_title
             , (
                 POW(69.1 * (gt_lat - %s), 2) +
                 POW(69.1 * (%s - gt_lon) * COS(gt_lon / 57.3), 2)
             ) AS distance_sqr
         FROM
             geo_tags
+            JOIN pages USING(page_id)
+        WHERE
+            page_namespace = 0
         ORDER BY distance_sqr ASC
         LIMIT %s;
     """
