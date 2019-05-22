@@ -75,12 +75,18 @@ class BaseQuerier(abc.ABC):
 
 class OutLinkFinder(BaseQuerier):
 
+    #
+    # Find outgoing links, resolving redirects
+    # Query parameters are (node_name,)
+    #
+
     QUERY_STRING = """
         SELECT DISTINCT
-            gt_page_title AS node_name
+            COALESCE(pl_title, rd.rd_title) AS page_title
         FROM
             pagelinks AS pl
-            JOIN pages ON page_id=gt_page_id
+            JOIN page ON page_id=pl_from
+            LEFT JOIN redirect AS rd ON page_id=rd_from
         WHERE
             page_title = %s
             AND page_namespace = 0
@@ -88,7 +94,6 @@ class OutLinkFinder(BaseQuerier):
             AND pl_from_namespace = 0
         ;
     """
-
     def get_payload(self, params=tuple()):
         results = self.execute_query(params)
         return [res.get("node_name") for res in results]
@@ -97,15 +102,16 @@ class OutLinkFinder(BaseQuerier):
 class InLinkFinder(BaseRequester):
 
     #
-    # Query prameters are (node_id,)
+    # Find incoming links, but NOT resolving redirects
+    # Query parameters are (node_name,)
     #
 
     QUERY_STRING = """
         SELECT DISTINCT
-            page_title AS node_name
+            page_title
         FROM
             pagelinks
-            JOIN pages ON page_id=gt_page_id
+            JOIN page ON page_id=pl_from
         WHERE
             pl_title = %s
             AND page_namespace = 0
@@ -116,15 +122,22 @@ class InLinkFinder(BaseRequester):
 
 
 class CategoryFinder(BaseRequester):
+
+    #
+    # Get categories for a node
+    # Query parameters are (node_name,)
+    #
+    
     QUERY_STRING = """
         SELECT DISTINCT
-            cat_name AS cat_name
+            cl_to
         FROM
-            category_links
-            JOIN pages ON USING(page_id)
+            categorylinks
+            JOIN page ON cl_from=page_id
         WHERE
-            pl_title = %s
+            page_title = %s
             AND page_namespace = 0
+            AND cl_type = "page"
         ;
     """
     def get_payload(self, params=tuple()):
@@ -135,6 +148,7 @@ class CategoryFinder(BaseRequester):
 class NearbyFinder(BaseRequester):
 
     #
+    # Get names of nearby things
     # Query prameters are (lat, long, num_results)
     #
 
@@ -147,13 +161,12 @@ class NearbyFinder(BaseRequester):
             ) AS distance_sqr
         FROM
             geo_tags
-            JOIN pages USING(page_id)
+            JOIN page ON page_id = gt_page_id
         WHERE
             page_namespace = 0
         ORDER BY distance_sqr ASC
         LIMIT %s;
     """
-
     def get_payload(self, params=tuple()):
         results = self.execute_query(params)
         return [res.get("gt_page_id") for res in results]
