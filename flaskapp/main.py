@@ -27,18 +27,15 @@ def index():
     if request.method == "POST":
         data = request.get_json()
         latitude, longitude = data['latitude'], data['longitude']
-        nearby_places = nearby_finder.get_links(latitude, longitude)
-        print(0)
+        nearby_places = nearby_finder.get_links((latitude, longitude))
 
         #latitude, longitude = 44.8113, -91.4985
         # Build an actual graph, connect nodes, select best paths
 
         # expand to find political boundaries, not just POI nearby
         nearby_concepts = expand_graph(nearby_places)
-        print(1)
 
         target_concepts = expand_graph(TARGETS)
-        print(2)
 
         # Add another connection layer that doesn't do full fan-out
         # so we get to depth (geo) - (geo+1) - (target + 1) - (target)

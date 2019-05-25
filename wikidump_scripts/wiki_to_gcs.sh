@@ -37,3 +37,4 @@ do
     rm ${LOCAL_DIR}/${FILE}
 done
 
+gsutil cp /Users/mcmenamin/Github/tourguide/wikidump_scripts/create_custom_tables.sql gs://${PROJECT_ID}.appspot.com/wikidump/create_custom_tables.sql

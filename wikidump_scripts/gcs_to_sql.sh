@@ -49,3 +49,9 @@ gcloud sql import sql \
     gs://${PROJECT_ID}.appspot.com/wikidump/${LINK_FILE} \
     --quiet \
     --database=${DBNAME}
+
+gcloud sql import sql \
+    $SQLINSTANCE \
+    gs://${PROJECT_ID}.appspot.com/wikidump/create_custom_tables.sql \
+    --quiet \
+    --database=${DBNAME}
