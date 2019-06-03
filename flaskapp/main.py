@@ -12,12 +12,41 @@ WIKI_URL = "https://en.wikipedia.org/wiki/{}"
 APP = Flask(__name__)
 APP.config['TEMPLATES_AUTO_RELOAD'] = True
 
-TARGETS = ['Ernest_Shackleton']
-
-nearby_finder = api_interfaces.NearbyFinder()
-il_finder = api_interfaces.InLinkFinder()
-ol_finder = api_interfaces.OutLinkFinder()
-
+# TODO: Load this stuff from disk/read from user input
+TARGETS = [
+    'Huey Long',
+    'Richard Nixon',
+    '1912 United States presidential election',
+    '1968 United States presidential election',
+    '1972 United States presidential election',
+    'Progressive Party (United States, 1924–34)',
+    'Socialist Party of America',
+    'Industrial Workers of the World',
+    'List of incidents of civil unrest in the United States',
+    'Jazz',
+    'Indie rock',
+    'Psychedelic rock',
+    'Musician',
+    'Green Bay Packers',
+    'Wisconsin Badgers',
+    'Minnesota Golden Gophers',
+    'Rock and Roll Hall of Fame',
+    'Mathematician',
+    'Scientist',
+    'National Academy of Engineering',
+    'National Academy of Science',
+    'List of Nobel laureates',
+    'Natural history',
+    'Fossil',
+    'Computer science',
+    'Conspiracy theory',
+    'Cryptozoology',
+    'Fearsome critters',
+    'Sea_monster',
+    'Hoax',
+    'Unidentified flying object',
+    'List of cryptids',
+]
 
 
 @APP.route('/', methods=['GET', 'POST'])
@@ -27,21 +56,23 @@ def index():
     if request.method == "POST":
         data = request.get_json()
         latitude, longitude = data['latitude'], data['longitude']
-        nearby_places = nearby_finder.get_links((latitude, longitude))
-
         #latitude, longitude = 44.8113, -91.4985
-        # Build an actual graph, connect nodes, select best paths
 
-        # expand to find political boundaries, not just POI nearby
-        nearby_concepts = expand_graph(nearby_places)
+        # TODO: break this up to load cached results
+        artical_graph = (
+            graph_builder.
+            ArticleGraph().
+            add_nearby(latitude, longitude, 100).
+            add_targets(TARGETS).
+            grow().
+            find_all_paths()
+        )
 
-        target_concepts = expand_graph(TARGETS)
+        # TODO: TURN PATHS INTO HTML HERE
 
-        # Add another connection layer that doesn't do full fan-out
-        # so we get to depth (geo) - (geo+1) - (target + 1) - (target)
         dicts_nearby = [
-            {"title": t, "url": WIKI_URL.format(t)}
-            for t in nearby_concepts.intersection(target_concepts)
+            {"title": paths[1].replace('_', ' '), "url": WIKI_URL.format(paths[1])}
+            for targ, paths in ag.all_paths.items():
         ]
 
         return jsonify(results=dicts_nearby)
