@@ -5,252 +5,239 @@ import abc
 import collections
 import functools
 import itertools
+import re
 
 import networkx as nx
-import sql_interfaces
+import special_nodes
 import wikidata_interfaces
 
 
-class BaseLookupInterface(abc.ABC):
-
-    def __init__(self):
-        self.inbound_link_finder = None
-        self.outbound_link_finder = None
-        self.cat_finder = None
-
-    def _get_node_outbound(self, nodes, batch_size=15):
-
-        nodes = list(nodes)
-        links = []
-        for idx in range(0, len(nodes), batch_size):
-            batch = nodes[idx: (idx + batch_size)]
-            links += self.outbound_link_finder.get_payload({"nodes": batch})
-        return links
-
-    def _get_node_inbound(self, nodes, batch_size=5):
-        nodes = list(nodes)
-        links = []
-        for idx in range(0, len(nodes), batch_size):
-            batch = nodes[idx: (idx + batch_size)]
-            links += self.inbound_link_finder.get_payload({"nodes": batch})
-        return links
-
-    def get_node_links(self, nodes, outbound=True, inbound=True):
-
-        links = []
-
-        if outbound:
-            links.extend(self._get_node_outbound(nodes))
-
-        if inbound:
-            links.extend(self._get_node_inbound(nodes))
-
-        return links
-
-    def get_node_categories(self, nodes, batch_size=10):
-        nodes = list(nodes)
-        results = {}
-        for idx in range(0, len(nodes), batch_size):
-            batch = nodes[idx: (idx + batch_size)]
-            results.update(
-                self.cat_finder.get_payload({"nodes": batch})
-            )
-        return results
-
-    def get_node_attrs(self, nodes, batch_size=10):
-        nodes = list(nodes)
-        results = {}
-        for idx in range(0, len(nodes), batch_size):
-            batch = nodes[idx: (idx + batch_size)]
-            results.update(
-                self.node_attr_finder.get_payload({"nodes": batch})
-            )
-        return results
-
-class SqlLookupInterface(BaseLookupInterface):
-
-    def __init__(self):
-        self.inbound_link_finder = sql_interfaces.InLinkFinder()
-        self.outbound_link_finder = sql_interfaces.OutLinkFinder()
-        self.cat_finder = sql_interfaces.CategoryFinder()
-        self.node_attr_finder = sql_interfaces.NodeAttributeFinder()
+REGEX_STRING_LIST = re.compile(r"\blist(s)?\b", re.IGNORECASE)
 
 
 class SeedRegionGraph(object):
     """
-        Graph of all articles surrounding a some 
-        nodes that form a seed region
+        Seed region subgraph
     """
-
-    BAD_CATEGORIES = {
-        'identifiers',
-        'unique_identifiers',
-        'iso_standards',
-        'geocodes',
-        'library_cataloging_and_classification',
-    }
-
-    BAD_CATEGORY_PREFIX = {
-        'list',
-    }
-
-    _MAX_IN_DEGREE = 10000
-    _MAX_OUT_DEGREE = 1000
 
     def __str__(self):
         output = "Region of {num_neighbors} nodes surrounding\n\t{seeds}"
+
+        print_nodes = [str(i) for i in  sorted(self.seed_nodes)[:20]]
+        if len(self.seed_nodes) > 20:
+            print_nodes.append("...")
+
         return output.format(
             num_neighbors=len(self.graph),
-            seeds="\n\t".join(self.seed_nodes)
+            seeds="\n\t".join(print_nodes)
         )
 
-    def __init__(self, lookup_interface):
+    def __init__(self, seed_nodes):
         self.seed_nodes = set()
         self.graph = nx.DiGraph()
-        self.node_attr = {}
+
         self.visited_nodes_ib = set()
         self.visited_nodes_ob = set()
-        self.node_categories = {}
-        self.lookup_interface = lookup_interface
 
-    def add_seeds(self, nodes):
-        self.seed_nodes.update(nodes)
-        self.graph.add_nodes_from(nodes)
-        self._update_categories()
-        self._update_attr()
-        self._remove_listy_nodes()
-        return self
+        self.inbound_link_finder = wikidata_interfaces.InLinkFinder()
+        self.outbound_link_finder = wikidata_interfaces.OutLinkFinder()
+        self.cat_finder = wikidata_interfaces.CategoryFinder()
+        self.dist_finder = wikidata_interfaces.CoordinateFinder()
 
-    def _remove_listy_nodes(self):
+        self.node_cats = {}
+        self.node_dists = {}
+        self.latlon = None
 
-        listy_nodes = []
-        for node, catlist in self.node_categories.items():
-
-            catlist_clean = {c.lower() for c in catlist}
-
-            if node.lower().startswith('list'):
-                listy_nodes.append(node)
-            elif catlist_clean.intersection(self.BAD_CATEGORIES):
-                listy_nodes.append(node)
-            elif any(c1.startswith(c2) for c1, c2 in itertools.product(catlist_clean, self.BAD_CATEGORY_PREFIX)):
-                listy_nodes.append(node)
-
-        for node, attr in self.node_attr.items():
-            if node not in self.seed_nodes:
-                if attr['in_degree'] > self._MAX_IN_DEGREE:
-                    listy_nodes.append(node)
-                elif attr['out_degree'] > self._MAX_OUT_DEGREE:
-                    listy_nodes.append(node)
-
-        self.graph.remove_nodes_from(listy_nodes)
-
+        self.add_seeds(seed_nodes)
 
     def _update_categories(self):
-        nodes_missing_cats = {
-            node
-            for node in self.graph
-            if node not in self.node_categories
+
+        nodes_without_cats = set(self.graph.nodes) - set(self.node_cats)
+        node_cats = self.cat_finder.get_payload(nodes_without_cats)
+
+        new_cats = collections.defaultdict(list)
+        for node, cat in node_cats:
+            if cat.startswith('Category:'):
+                cat = cat[9:]
+            new_cats[node].append(cat)
+
+        self.node_cats.update(new_cats)
+
+        return nodes_without_cats
+
+    def _update_dists(self):
+
+        nodes_without_dists = set(self.graph.nodes) - set(self.node_dists)
+        node_dists = self.dist_finder.get_payload(nodes_without_dists, self.latlon)
+
+        new_dists = {}
+        for node, dist in node_dists:
+            if node not in new_dists:
+                new_dists[node] = dist
+            else:
+                new_dists[node] = min(new_dists[node], dist)
+
+        self.node_dists.update(new_dists)
+
+        return nodes_without_dists
+
+    def _filter_nodes(self, use_category_fitlering=False, use_distance_filtering=False):
+        bad_nodes = special_nodes.NODE_BLACKLIST.intersection(self.graph.nodes)
+        for n in self.graph.nodes:
+            if n.startswith('List '):
+                bad_nodes.add(n)
+
+        self.graph.remove_nodes_from(bad_nodes)
+
+        if use_category_fitlering:
+            self._filter_nodes_by_category()
+
+        if use_distance_filtering:
+            self._filter_nodes_by_distance()
+
+    def _filter_nodes_by_category(self):
+        nodes_with_new_cats = self._update_categories()
+        bad_nodes = set()
+        for n in nodes_with_new_cats:
+            node_cats = self.node_cats.get(n, [])
+            if any(REGEX_STRING_LIST.search(cat) for cat in node_cats):
+                bad_nodes.add(n)
+
+        self.graph.remove_nodes_from(bad_nodes)
+
+    def _filter_nodes_by_distance(self, max_dist=10000):
+        nodes_with_new_dists = self._update_dists()
+
+        bad_nodes = {
+            n
+            for n in nodes_with_new_dists
+            if self.node_dists.get(n, -1) > max_dist
         }
 
-        new_node_cats = self.lookup_interface.get_node_categories(nodes_missing_cats)
-        self.node_categories.update(new_node_cats)
-
-    def _update_attr(self):
-        nodes_missing_attr = {
-            node
-            for node in self.graph
-            if node not in self.node_attr
-        }
-
-        new_node_attrs = self.lookup_interface.get_node_attrs(nodes_missing_attr)
-        for page_title, (in_deg, out_deg) in new_node_attrs.items():
-            self.node_attr[page_title] = {
-                'in_degree': in_deg,
-                'out_degree': out_deg
-            }
+        self.graph.remove_nodes_from(bad_nodes)
 
     def dilate(self, inbound=True, outbound=True):
 
+        orig_nodes = set(self.graph.nodes)
+        nodes_to_visit = set()
         if inbound and outbound:
             fully_visited_nodes = self.visited_nodes_ib.intersection(self.visited_nodes_ob)
-            nodes_to_visit = set(self.graph.nodes) - fully_visited_nodes
+            nodes_to_visit = orig_nodes - fully_visited_nodes
         elif inbound:
-            nodes_to_visit = set(self.graph.nodes) - self.visited_nodes_ib
+            nodes_to_visit = orig_nodes - self.visited_nodes_ib
         elif outbound:
-            nodes_to_visit = set(self.graph.nodes) - self.visited_nodes_ob
-
-        new_edges = self.lookup_interface.get_node_links(
-            nodes_to_visit,
-            outbound=outbound,
-            inbound=inbound)
-
-        self.graph.add_edges_from(new_edges)
-
-        if inbound:
-            self.visited_nodes_ib.update(nodes_to_visit)
+            nodes_to_visit = orig_nodes - self.visited_nodes_ob
 
         if outbound:
+            new_edges = self.outbound_link_finder.get_payload(nodes_to_visit)
+            self.graph.add_edges_from(new_edges)
             self.visited_nodes_ob.update(nodes_to_visit)
 
-        self._update_categories()
-        self._update_attr()
-        self._remove_listy_nodes()
+        if inbound:
+            new_edges = self.inbound_link_finder.get_payload(nodes_to_visit)
+            self.graph.add_edges_from(new_edges)
+            self.visited_nodes_ib.update(nodes_to_visit)
+
+        new_nodes = set(self.graph.nodes) - orig_nodes
+
+        self._filter_nodes()
+        return self
+
+    def set_latlon(self, lat, lon):
+        self.latlon = (lat, lon)
+
+    def add_seeds(self, nodes):
+        nodes = {
+            n.replace(" ", "_")
+            for n in nodes
+        }
+        self.seed_nodes.update(nodes)
+        self.graph.add_nodes_from(nodes)
+        self._filter_nodes()
         return self
 
 
 class ArticleGraph(object):
 
     def __str__(self):
-        out_str = "FROM/ORIGIN:\n{}\n\nTO/GOAL:\n{}".format(
-            self.origin,
-            self.goal
+        out_str = "FROM/NEARBY:\n{}\n\nTO/TARGET:\n{}".format(
+            self.nearby,
+            self.target
         )
         return out_str
 
-    def __init__(self, geo_kwargs=None):
+    def __init__(self, *args, **kwargs):
+        self.geo_lookup = wikidata_interfaces.NearbyFinder()
+        self.nearby = None
+        self.target = None
 
-        geo_kwargs = {} if not isinstance(geo_kwargs, dict) else geo_kwargs
+        self.all_paths = {}
+        self.path_graphs = {}
 
-        self.geo_lookup = sql_interfaces.NearbyFinder(**geo_kwargs)
-        self.city_lookup = sql_interfaces.CityFinder(**geo_kwargs)
+    def add_nearby(self, lat, lon, num_nearby=10):
+        nearby_nodes = self.geo_lookup.get_payload(lat, lon, num_nearby=num_nearby)
+        self.nearby = SeedRegionGraph(nearby_nodes)
+        self.nearby.set_latlon(lat, lon)
+        return self
 
-        self.link_lookup = SqlLookupInterface()
-        self.origin = SeedRegionGraph(self.link_lookup)
-        self.goal = SeedRegionGraph(self.link_lookup)
-
-    def add_location_from_latlon(self, latitude, longitude, num_nearby, num_cities):
-        nearby_nodes = self.geo_lookup.get_payload({
-            "lat": latitude,
-            "lon": longitude,
-            "n": num_nearby
-        })
-        nearby_nodes += self.city_lookup.get_payload({
-            "lat": latitude,
-            "lon": longitude,
-            "n": num_cities
-        })
-        self.origin.add_seeds(nearby_nodes)
-
-    def add_location_from_text(self, origin_nodes):
-        self.origin.add_seeds(origin_nodes)
-
-    def add_goals(self, goal_nodes):
-        self.goal.add_seeds(goal_nodes)
+    def add_targets(self, target_nodes):
+        self.target = SeedRegionGraph(target_nodes)
+        return self
 
     def grow(self):
-        print('dilating origins')
-        self.origin.dilate(inbound=True, outbound=True)
+        print('dilating nearby')
+        self.nearby.dilate(inbound=True, outbound=False)
 
-        print('dilating goals')
-        self.goal.dilate(inbound=True, outbound=True)
+        print('dilating targets')
+        self.target.dilate(inbound=True, outbound=True)
 
         return self
 
-    def get_full_graph(self):
+    def _get_full_graph(self):
 
         full_graph = nx.compose(
-            self.origin.graph,
-            self.goal.graph
+            self.nearby.graph,
+            self.target.graph
         )
 
         return full_graph
+
+    def _get_paths_to_target(self, graph, end_node):
+
+        seeds = self.nearby.seed_nodes.union(self.target.seed_nodes)
+        inter_nodes = set(graph.nodes) - seeds
+
+        paths = []
+        for start_node in self.nearby.seed_nodes:
+            _graph = graph.subgraph(inter_nodes.union({start_node, end_node}))
+            _paths = nx.algorithms.simple_paths.all_simple_paths(
+                _graph,
+                start_node,
+                end_node,
+                cutoff=2
+            )
+            paths.extend(_paths)
+
+        return paths
+
+    def find_all_paths(self):
+
+        full_graph = self._get_full_graph()
+        full_graph_undir = (
+            full_graph.
+            to_undirected(reciprocal=False, as_view=False)
+        )
+
+        print('finding paths')
+        self.all_paths = {
+            targ: self._get_paths_to_target(full_graph_undir, targ)
+            for targ in self.target.seed_nodes
+        }
+
+        print('building pathgraphs')
+        self.path_graphs = {}
+        for targ, paths in self.all_paths.items():
+            path_nodes = {node for path in paths for node in path}
+            self.path_graphs[targ] = full_graph.subgraph(path_nodes)
+
+        return self

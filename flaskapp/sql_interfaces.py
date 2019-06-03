@@ -19,7 +19,7 @@ BASE_PARAMS = {
     "user": "",
     "password": "",
     "db": "wiki-20190501",
-    "cursorclass": pymysql.cursors.DictCursor
+    #"cursorclass": pymysql.cursors.DictCursor
 }
 
 
@@ -31,8 +31,8 @@ class DatabaseConnection(object):
         )
 
         # Get username/password from env vars
-        self.db_params["user"] = os.getenv(DB_USERNAME_ENVVAR)
-        self.db_params["password"] = os.getenv(DB_PASSWORD_ENVVAR)
+        self.db_params["user"] = 'root' #os.getenv(DB_USERNAME_ENVVAR)
+        self.db_params["password"] = 'strider' #os.getenv(DB_PASSWORD_ENVVAR)
 
     def __enter__(self):
         self.connection = pymysql.connect(**self.db_params)
@@ -81,25 +81,24 @@ class OutLinkFinder(BaseQuerier):
     #
 
     QUERY_STRING = """
-        SELECT DISTINCT
-            page_title AS page_title
-            , pl_title AS out_page_title
+        SELECT
+            pl_from AS page_title
+            , page_id AS out_page_title
         FROM
-            page
-            JOIN pagelinks AS pl ON page_id=pl_from
+            pagelinks AS pl 
+            JOIN page ON page_title=pl_title
         WHERE
-            page_title IN %(nodes)s
+            pl_from IN %(nodes)s
             AND page_namespace = 0
             AND pl_namespace = 0
             AND pl_from_namespace = 0
+            AND page_title NOT LIKE "List_%%"
+            AND pl_title NOT LIKE "List_%%"
         ;
     """
     def get_payload(self, params=tuple()):
         results = self.execute_query(params=params)
-        return [
-            (str(res.get("page_title"), 'utf'), str(res.get("out_page_title"), 'utf'))
-            for res in results
-        ]
+        return results
 
 
 class InLinkFinder(BaseQuerier):
@@ -111,22 +110,23 @@ class InLinkFinder(BaseQuerier):
 
     QUERY_STRING = """
         SELECT DISTINCT
-            (SELECT page_title FROM page WHERE page_id = pl_from AND page_namespace = 0) AS page_title
-            , pl_title AS out_page_title
+            pl_from AS page_title
+            , page_id AS out_page_title
         FROM
-            pagelinks
+            page 
+            JOIN pagelinks ON page_title=pl_title
         WHERE
-            pl_title IN %(nodes)s
+            page_id IN %(nodes)s
             AND pl_namespace = 0
             AND pl_from_namespace = 0
+            AND page_title NOT LIKE "List_%%"
+            AND pl_title NOT LIKE "List_%%"
         ;
     """
+
     def get_payload(self, params=tuple()):
         results = self.execute_query(params=params)
-        return [
-            (str(res.get("page_title"), 'utf'), str(res.get("out_page_title"), 'utf'))
-            for res in results
-        ]
+        return results
 
 
 class NodeAttributeFinder(BaseQuerier):
@@ -138,46 +138,41 @@ class NodeAttributeFinder(BaseQuerier):
 
     QUERY_STRING = """
         SELECT
-            page_title
+            page_id
             , COALESCE(id.in_degree, 0) AS in_degree
             , COALESCE(od.out_degree, 0) AS out_degree
         FROM
             (
                 SELECT
-                    page_title
+                    pl_from AS page_id
                     , COUNT(DISTINCT(pl_title)) AS out_degree
                 FROM
-                    page
-                    JOIN pagelinks ON page_id = pl_from
+                    pagelinks
                 WHERE
-                    page_title IN %(nodes)s
-                    AND page_namespace = 0
+                    pl_from IN %(nodes)s
                     AND pl_namespace = 0
                     AND pl_from_namespace = 0
-                GROUP BY page_title
+                GROUP BY pl_from
             ) AS od
             LEFT JOIN
             (
                 SELECT
                     COUNT(DISTINCT(pl_from)) AS in_degree
-                    , pl_title AS page_title
+                    , page_id
                 FROM
-                    pagelinks
+                    page
+                    JOIN pagelinks ON page_title = pl_title
                 WHERE
-                    pl_title IN %(nodes)s
+                    page_id IN %(nodes)s
                     AND pl_namespace = 0
                     AND pl_from_namespace = 0
-                GROUP BY page_title
-            ) AS id USING(page_title)
+                GROUP BY page_id
+            ) AS id USING(page_id)
         ;
     """
-
     def get_payload(self, params=tuple()):
         results = self.execute_query(params=params)
-        return {
-            str(res.get("page_title"), 'utf'): (res.get("in_degree", 0), res.get("out_degree", 0))
-            for res in results
-        }
+        return results
 
 class CategoryFinder(BaseQuerier):
 
@@ -188,14 +183,12 @@ class CategoryFinder(BaseQuerier):
     
     QUERY_STRING = """
         SELECT DISTINCT
-            page_title AS page_title
+            cl_from AS page_title
             , cl_to AS cat_name
         FROM
-            page
-            JOIN categorylinks ON cl_from=page_id
+            categorylinks
         WHERE
-            page_title IN %(nodes)s
-            AND page_namespace = 0
+            cl_from IN %(nodes)s
             AND cl_type = "page"
         ;
     """
@@ -204,8 +197,8 @@ class CategoryFinder(BaseQuerier):
 
         output_dict = collections.defaultdict(list)
         for res in results:
-            n = str(res.get("page_title"), 'utf')
-            c = str(res.get("cat_name"), 'utf')
+            n = res[0]
+            c = res[1]
             output_dict[n].append(c)
 
         return dict(output_dict)
@@ -220,14 +213,13 @@ class CityFinder(BaseQuerier):
 
     QUERY_STRING = """
         SELECT DISTINCT
-            page_title
+            gt_page_id AS page_title
             , MIN(
                 POW(69.1 * (gt_lat - %(lat)s), 2) +
                 POW(69.1 * (%(lon)s - gt_lon) * COS(gt_lon / 57.3), 2)
             ) AS distance_sqr
         FROM
             geo_tags
-            JOIN page ON page_id = gt_page_id
         WHERE
             gt_lat BETWEEN
                 %(lat)s - (18 / 69.1) AND %(lat)s + (18 / 69.1)
@@ -236,12 +228,10 @@ class CityFinder(BaseQuerier):
                 %(lon)s - (18 / (69.1 * COS(%(lat)s)))
                 AND %(lon)s + (18 / (69.1 * COS(%(lat)s)))
 
-            AND page_namespace = 0
-
             AND EXISTS (
                 SELECT 1
                 FROM categorylinks
-                WHERE cl_to LIKE "Cities%%" AND cl_from=page_id
+                WHERE cl_to LIKE "Cities%%" AND cl_from=gt_page_id
             )
         GROUP BY page_title
         ORDER BY distance_sqr ASC
@@ -249,7 +239,9 @@ class CityFinder(BaseQuerier):
     """
     def get_payload(self, params=tuple()):
         results = self.execute_query(params=params)
-        return [str(res.get("page_title"), 'utf') for res in results]
+        return [
+            res[0] for res in results
+        ]
 
 class NearbyFinder(BaseQuerier):
 
@@ -260,14 +252,13 @@ class NearbyFinder(BaseQuerier):
 
     QUERY_STRING = """
         SELECT DISTINCT
-            page_title
+            gt_page_id AS page_title
             , MIN(
                 POW(69.1 * (gt_lat - %(lat)s), 2) +
                 POW(69.1 * (%(lon)s - gt_lon) * COS(gt_lon / 57.3), 2)
             ) AS distance_sqr
         FROM
             geo_tags
-            JOIN page ON page_id = gt_page_id
         WHERE
             gt_lat BETWEEN
                 %(lat)s - (18 / 69.1) AND %(lat)s + (18 / 69.1)
@@ -276,17 +267,22 @@ class NearbyFinder(BaseQuerier):
                 %(lon)s - (18 / (69.1 * COS(%(lat)s)))
                 AND %(lon)s + (18 / (69.1 * COS(%(lat)s)))
 
-            AND page_namespace = 0
-
             AND NOT EXISTS (
                 SELECT 1
                 FROM categorylinks
-                WHERE cl_to LIKE "Cities%%" AND cl_from=page_id
+                WHERE cl_to LIKE "Cities%%" AND cl_from=gt_page_id
             )
         GROUP BY page_title
         ORDER BY distance_sqr ASC
         LIMIT %(n)s;
     """
+
+        #JOIN page ON page_id = gt_page_id
+        #AND page_namespace = 0
+        #AND page_title NOT LIKE "List_%%"
+
     def get_payload(self, params=tuple()):
         results = self.execute_query(params=params)
-        return [str(res.get("page_title"), 'utf') for res in results]
+        return [
+            res[0] for res in results
+        ]
