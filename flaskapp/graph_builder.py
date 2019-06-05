@@ -3,16 +3,14 @@
 """
 import abc
 import collections
-import functools
 import itertools
+import functools
 import re
+import string
 
 import networkx as nx
 import special_nodes
 import wikidata_interfaces
-
-
-REGEX_STRING_LIST = re.compile(r"\blist(s)?\b", re.IGNORECASE)
 
 
 class SeedRegionGraph(object):
@@ -70,32 +68,49 @@ class SeedRegionGraph(object):
         nodes_without_dists = set(self.graph.nodes) - set(self.node_dists)
         node_dists = self.dist_finder.get_payload(nodes_without_dists, self.latlon)
 
-        new_dists = {}
+        page_dists = collections.defaultdict(list)
         for node, dist in node_dists:
-            if node not in new_dists:
-                new_dists[node] = dist
-            else:
-                new_dists[node] = min(new_dists[node], dist)
+            page_dists[node].append(dist)
 
-        self.node_dists.update(new_dists)
+        min_dists = {node: -1 for node in nodes_without_dists}
+
+        for key, val in page_dists.items():
+            min_dists[key] = min(val) if val else -1
+
+        self.node_dists.update(min_dists)
 
         return nodes_without_dists
 
-    def _filter_nodes(self, use_category_fitlering=False, use_distance_filtering=False):
-        bad_nodes = special_nodes.NODE_BLACKLIST.intersection(self.graph.nodes)
-        for n in self.graph.nodes:
-            if n.startswith('List '):
-                bad_nodes.add(n)
+    def filter_nodes_by_blacklist(self):
 
-        self.graph.remove_nodes_from(bad_nodes)
+        bl_nodes = {
+            n
+            for n in self.graph.nodes
+            if n in special_nodes.NODE_BLACKLIST
+        }
 
-        if use_category_fitlering:
-            self._filter_nodes_by_category()
+        list_nodes = {
+            n
+            for n in self.graph.nodes
+            if n.startswith('List_')
+        }
 
-        if use_distance_filtering:
-            self._filter_nodes_by_distance()
+        nonchar_nodes = {
+            n
+            for n in self.graph.nodes
+            if not any(c in n for c in string.ascii_letters)
+        }
 
-    def _filter_nodes_by_category(self):
+        bad_nodes = set.union(
+            bl_nodes,
+            list_nodes,
+            nonchar_nodes
+        )
+
+        self.graph.remove_nodes_from(bad_nodes - self.seed_nodes)
+
+
+    def filter_nodes_by_category(self):
         nodes_with_new_cats = self._update_categories()
         bad_nodes = set()
         for n in nodes_with_new_cats:
@@ -105,16 +120,17 @@ class SeedRegionGraph(object):
 
         self.graph.remove_nodes_from(bad_nodes)
 
-    def _filter_nodes_by_distance(self, max_dist=10000):
+    def filter_nodes_by_distance(self, max_dist=5000):
+        
         nodes_with_new_dists = self._update_dists()
-
+        
         bad_nodes = {
             n
             for n in nodes_with_new_dists
             if self.node_dists.get(n, -1) > max_dist
         }
 
-        self.graph.remove_nodes_from(bad_nodes)
+        self.graph.remove_nodes_from(bad_nodes - self.seed_nodes)
 
     def dilate(self, inbound=True, outbound=True):
 
@@ -139,8 +155,6 @@ class SeedRegionGraph(object):
             self.visited_nodes_ib.update(nodes_to_visit)
 
         new_nodes = set(self.graph.nodes) - orig_nodes
-
-        self._filter_nodes()
         return self
 
     def set_latlon(self, lat, lon):
@@ -153,7 +167,6 @@ class SeedRegionGraph(object):
         }
         self.seed_nodes.update(nodes)
         self.graph.add_nodes_from(nodes)
-        self._filter_nodes()
         return self
 
 
@@ -187,9 +200,12 @@ class ArticleGraph(object):
     def grow(self):
         print('dilating nearby')
         self.nearby.dilate(inbound=True, outbound=False)
+        self.nearby.filter_nodes_by_blacklist()
+        self.nearby.filter_nodes_by_distance()
 
         print('dilating targets')
         self.target.dilate(inbound=True, outbound=True)
+        self.target.filter_nodes_by_blacklist()
 
         return self
 

@@ -1,17 +1,45 @@
+var WIKI_URL =  "https://en.wikipedia.org/wiki/"
+
+
+function wikititle_to_html(title) {
+    url = WIKI_URL + title.split(" ").join("_")
+    return "<a href=" + url + ">" + title.split("_").join(" ") + "<a>";
+}
+
+function fmt_nested_lists(i) {
+    var out_string = ""
+
+    if (Array.isArray(i)) {
+        out_string = "<div>"
+          + "<ul class=\"list-group border-0 \">"
+          + i.map(fmt_nested_lists).join("\n")
+          + "</ul>"
+        + "</div>";                        
+    }
+    else {
+        out_string = "<li class=\"list-group-item border-0\">"
+        + wikititle_to_html(i)
+        + "</il>";
+    }
+    return out_string;
+}
+
 $( document ).ready(function() {
-    var x = document.getElementById( "places-list" );
-    
-    $( ".btn-search" ).click(
+    var outputEl = document.getElementById( "output-vals" );
+
+
+
+    $( ".search-button" ).click(
         function() { getLocation(); }
     );
 
     function getLocation() {
-        x.innerHTML = "Searching...";
+        outputEl.innerHTML = "Searching...";
 
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(fetchPlaces);
         } else { 
-            x.innerHTML = "Geolocation is not supported by this browser.";
+            outputEl.innerHTML = "Geolocation is not supported by this browser.";
         }
     }
 
@@ -29,22 +57,14 @@ $( document ).ready(function() {
             contentType: "application/json",
             dataType: "json",
 
-            success: function (response) { 
-                var places = response["results"]
+            success: function (response) {
+                outputEl.innerHTML = fmt_nested_lists(response["nested_lists_by_topic"])
+                add_toggles()
 
-                x.innerHTML = "";
-                
-                for (var p in places) {
-                    x.innerHTML +=
-                        "<div class=\"item\">" +
-                        "<a href=\"" +places[p]["url"] + "\">" +
-                        places[p]["title"] +
-                        "</div>";
-                }
             },
 
             error: function () {
-                x.innerHTML = "An error occured while fetching places";
+                outputEl.innerHTML = "An error occured while fetching places";
             }
         });
     }

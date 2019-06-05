@@ -1,29 +1,64 @@
-body {
-    margin: 0 auto;
-    max-width: 100em;
-    font-family: "Helvetica", "Arial", sans-serif;
-    line-height: 1.5;
-    padding: 4em 1em;
-    color: #555;
-}
-
 h1 {
-    font-family: "Helvetica", "Arial", sans-serif;
+    font-family: monospace, monospace;
+    max-width: 140em;
     font-size: 2.5em;
     font-weight: normal;
     color: black;
-    margin-top: 1em;
-    padding-top: 1em;
     color: #333
 }
 
+body {
+    margin: 0 auto;
+    max-width: 110em;
+    font-family: monospace, monospace;
+    line-height: 1.5;
+    padding: 2em 1em;
+    color: #555;
+}
+
 button {
-    font-size: 16px;
-    padding: 10px 25px;
+    font-size: 3.0em;
+    padding: 8px 10px;
     cursor: pointer;
     text-decoration: none;
     color: white;
-    border-radius: 4px;
+    border-radius: 5px;
     background-color: #7c7ce0;
-    margin-bottom: 20px;
+}
+
+.list-group {
+    padding: 1px 3px
+}
+
+.list-group-item {
+    padding: 1px 35px
+}
+
+
+
+/* Style the caret/arrow */
+.caret {
+  cursor: pointer; 
+  user-select: none;
+}
+
+/* Create the caret/arrow with a unicode, and style it */
+.caret::before {
+  content: "\25B6";
+  color: black;
+  display: inline-block;
+  margin-right: 6px;
+}
+
+/* Rotate the caret/arrow icon when clicked on (using JavaScript) */
+.caret-down::before {
+  transform: rotate(90deg); 
+}
+
+.nested {
+  display: none;
+}
+
+.active {
+  display: block;
 }

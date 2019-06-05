@@ -1,52 +1,60 @@
 """
     List nearby places
 """
+import os
+import collections
 
-import api_interfaces
 import graph_builder
 
 from flask import Flask, request, render_template, jsonify
 
-WIKI_URL = "https://en.wikipedia.org/wiki/{}"
-
 APP = Flask(__name__)
 APP.config['TEMPLATES_AUTO_RELOAD'] = True
 
-# TODO: Load this stuff from disk/read from user input
-TARGETS = [
-    'Huey Long',
-    'Richard Nixon',
-    '1912 United States presidential election',
-    '1968 United States presidential election',
-    '1972 United States presidential election',
-    'Progressive Party (United States, 1924–34)',
-    'Socialist Party of America',
-    'Industrial Workers of the World',
-    'List of incidents of civil unrest in the United States',
-    'Jazz',
-    'Indie rock',
-    'Psychedelic rock',
-    'Musician',
-    'Green Bay Packers',
-    'Wisconsin Badgers',
-    'Minnesota Golden Gophers',
-    'Rock and Roll Hall of Fame',
-    'Mathematician',
-    'Scientist',
-    'National Academy of Engineering',
-    'National Academy of Science',
-    'List of Nobel laureates',
-    'Natural history',
-    'Fossil',
-    'Computer science',
-    'Conspiracy theory',
-    'Cryptozoology',
-    'Fearsome critters',
-    'Sea_monster',
-    'Hoax',
-    'Unidentified flying object',
-    'List of cryptids',
-]
+
+TARGET_FILE = os.path.join(
+    os.path.curdir,
+    'targets.txt'
+)
+
+DEBUG = False
+
+def load_targets():
+
+    target_list = []
+    with open(TARGET_FILE, 'rt') as file:
+        for line in file:
+            target_list.append(
+                line.strip().replace(" ", "_")
+            )
+
+    return target_list
+
+
+def lols_to_dods(lols):
+    temp_dict = collections.defaultdict(list)
+    for l in lols:
+        if len(l) > 1:
+            temp_dict[l[0]].append(l[1:])
+
+    if temp_dict:
+        return {
+            key: lols_to_dods(val)
+            for key, val in temp_dict.items()
+        }
+
+    return sorted([l[0] for l in lols])
+
+
+def dod_to_nestedlists(in_dod):
+
+    if isinstance(in_dod, list):
+        return in_dod
+
+    return [
+        [key, dod_to_nestedlists(val)]
+        for key, val in in_dod.items()
+    ]
 
 
 @APP.route('/', methods=['GET', 'POST'])
@@ -54,34 +62,44 @@ def index():
     """ Displays the index page accessible at '/'
     """
     if request.method == "POST":
-        data = request.get_json()
-        latitude, longitude = data['latitude'], data['longitude']
-        #latitude, longitude = 44.8113, -91.4985
 
-        # TODO: break this up to load cached results
-        artical_graph = (
-            graph_builder.
-            ArticleGraph().
-            add_nearby(latitude, longitude, 100).
-            add_targets(TARGETS).
-            grow().
-            find_all_paths()
+        data = request.get_json()
+        article_graph = graph_builder.ArticleGraph()
+
+        if DEBUG:
+            latitude, longitude = 44.8113, -91.4985
+            target_list = ['Green_Bay_Packers', 'Indie_rock']
+        else:
+            latitude, longitude = data['latitude'], data['longitude']
+            target_list = load_targets()[]
+
+        article_graph.add_nearby(latitude, longitude, 20)
+        article_graph.add_targets(target_list)
+        article_graph.grow()
+
+        article_graph = article_graph.find_all_paths()
+
+        dods_by_loc = lols_to_dods(
+            path
+            for pathlist in article_graph.all_paths.values()
+            for path in pathlist
         )
 
-        # TODO: TURN PATHS INTO HTML HERE
+        dods_by_topic = lols_to_dods(
+            path[::-1]
+            for pathlist in article_graph.all_paths.values()
+            for path in pathlist
+        )
 
-        dicts_nearby = [
-            {"title": paths[1].replace('_', ' '), "url": WIKI_URL.format(paths[1])}
-            for targ, paths in ag.all_paths.items():
-        ]
-
-        return jsonify(results=dicts_nearby)
+        return jsonify(
+            nested_lists_by_loc=dod_to_nestedlists(dods_by_loc),
+            nested_lists_by_topic=dod_to_nestedlists(dods_by_topic)
+        )
 
     return render_template('places.html')
 
 if __name__ == '__main__':
-
-    APP.run(debug=True)
+    APP.run(debug=DEBUG)
 
 
 

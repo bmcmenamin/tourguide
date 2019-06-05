@@ -10,6 +10,7 @@ import requests
 
 API_ENDPOINT = "https://en.wikipedia.org/w/api.php"
 
+
 class BaseRequester(abc.ABC):
     """Base class for findling links to/from a page"""
 
@@ -20,8 +21,6 @@ class BaseRequester(abc.ABC):
 
     def __init__(self):
         self.session = requests.Session()
-
-
 
     def _parse_response(self, resp):
 
@@ -79,6 +78,7 @@ class BaseRequester(abc.ABC):
 
         return results
 
+
 class OutLinkFinder(BaseRequester):
 
     _PROP_TYPE = "links"
@@ -93,6 +93,7 @@ class OutLinkFinder(BaseRequester):
         "continue": "||"
     }
 
+
 class InLinkFinder(BaseRequester):
 
     _PROP_TYPE = "linkshere"
@@ -106,6 +107,7 @@ class InLinkFinder(BaseRequester):
         "lhnamespace": 0,
         "lhlimit": "max",
     }
+
 
 class NearbyFinder(BaseRequester):
 
@@ -149,6 +151,7 @@ class NearbyFinder(BaseRequester):
         params["gslimit"] = num_nearby
         return self._get_all_responses(params)
 
+
 class CategoryFinder(BaseRequester):
 
     _PROP_TYPE = "categories"
@@ -160,6 +163,7 @@ class CategoryFinder(BaseRequester):
         "cllimit": "max",
         "clshow": "!hidden"
     }
+
 
 class CoordinateFinder(BaseRequester):
 
@@ -175,12 +179,12 @@ class CoordinateFinder(BaseRequester):
     def _parse_response(self, resp):
 
         resp_dict = resp.json()
-
         pages = (
             resp_dict.
             get("query", {}).
             get("pages", {})
         )
+
 
         links = [
             (
@@ -202,9 +206,11 @@ class CoordinateFinder(BaseRequester):
     def get_payload(self, page_titles, latlon):
         params = self.INIT_PARAMS.copy()
         params["codistancefrompoint"] = "{}|{}".format(*latlon)
+        results = []
         for chunk in funcy.chunks(50, page_titles):
             chunk = [str(c).replace(" ", "_") for c in chunk]
             params.pop(self._CONTINUE_FIELD, None)
             params["titles"] = '|'.join(chunk)
-            return self._get_all_responses(params)
-
+            resp = self._get_all_responses(params)
+            results.extend(resp)
+        return results
