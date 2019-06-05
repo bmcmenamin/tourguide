@@ -8,8 +8,8 @@ import graph_builder
 
 from flask import Flask, request, render_template, jsonify
 
-APP = Flask(__name__)
-APP.config['TEMPLATES_AUTO_RELOAD'] = True
+app = Flask(__name__)
+app.config['TEMPLATES_AUTO_RELOAD'] = True
 
 
 TARGET_FILE = os.path.join(
@@ -57,7 +57,7 @@ def dod_to_nestedlists(in_dod):
     ]
 
 
-@APP.route('/', methods=['GET', 'POST'])
+@app.route('/', methods=['GET', 'POST'])
 def index():
     """ Displays the index page accessible at '/'
     """
@@ -71,7 +71,7 @@ def index():
             target_list = ['Green_Bay_Packers', 'Indie_rock']
         else:
             latitude, longitude = data['latitude'], data['longitude']
-            target_list = load_targets()[]
+            target_list = load_targets()
 
         article_graph.add_nearby(latitude, longitude, 20)
         article_graph.add_targets(target_list)
@@ -99,7 +99,7 @@ def index():
     return render_template('places.html')
 
 if __name__ == '__main__':
-    APP.run(
+    app.run(
         host='127.0.0.1',
         port=8080,
         debug=DEBUG
