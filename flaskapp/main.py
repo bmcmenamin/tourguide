@@ -99,7 +99,11 @@ def index():
     return render_template('places.html')
 
 if __name__ == '__main__':
-    APP.run(debug=DEBUG)
+    APP.run(
+        host='127.0.0.1',
+        port=8080,
+        debug=DEBUG
+    )
 
 
 
