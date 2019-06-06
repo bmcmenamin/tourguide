@@ -175,14 +175,14 @@ class ArticleGraph(object):
     def __str__(self):
         out_str = "FROM/NEARBY:\n{}\n\nTO/TARGET:\n{}".format(
             self.nearby,
-            self.target
+            self.topics
         )
         return out_str
 
     def __init__(self, *args, **kwargs):
         self.geo_lookup = wikidata_interfaces.NearbyFinder()
         self.nearby = None
-        self.target = None
+        self.topics = None
 
         self.all_paths = {}
         self.path_graphs = {}
@@ -193,8 +193,8 @@ class ArticleGraph(object):
         self.nearby.set_latlon(lat, lon)
         return self
 
-    def add_targets(self, target_nodes):
-        self.target = SeedRegionGraph(target_nodes)
+    def add_topics(self, topic_nodes):
+        self.topics = SeedRegionGraph(topic_nodes)
         return self
 
     def grow(self):
@@ -203,9 +203,9 @@ class ArticleGraph(object):
         self.nearby.filter_nodes_by_blacklist()
         self.nearby.filter_nodes_by_distance()
 
-        print('dilating targets')
-        self.target.dilate(inbound=True, outbound=True)
-        self.target.filter_nodes_by_blacklist()
+        print('dilating topics')
+        self.topics.dilate(inbound=True, outbound=True)
+        self.topics.filter_nodes_by_blacklist()
 
         return self
 
@@ -213,14 +213,14 @@ class ArticleGraph(object):
 
         full_graph = nx.compose(
             self.nearby.graph,
-            self.target.graph
+            self.topics.graph
         )
 
         return full_graph
 
-    def _get_paths_to_target(self, graph, end_node):
+    def _get_paths_to_topic(self, graph, end_node):
 
-        seeds = self.nearby.seed_nodes.union(self.target.seed_nodes)
+        seeds = self.nearby.seed_nodes.union(self.topics.seed_nodes)
         inter_nodes = set(graph.nodes) - seeds
 
         paths = []
@@ -246,14 +246,14 @@ class ArticleGraph(object):
 
         print('finding paths')
         self.all_paths = {
-            targ: self._get_paths_to_target(full_graph_undir, targ)
-            for targ in self.target.seed_nodes
+            topics: self._get_paths_to_topic(full_graph_undir, topics)
+            for topics in self.topics.seed_nodes
         }
 
         print('building pathgraphs')
         self.path_graphs = {}
-        for targ, paths in self.all_paths.items():
+        for topics, paths in self.all_paths.items():
             path_nodes = {node for path in paths for node in path}
-            self.path_graphs[targ] = full_graph.subgraph(path_nodes)
+            self.path_graphs[topics] = full_graph.subgraph(path_nodes)
 
         return self

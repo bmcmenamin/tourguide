@@ -1,7 +1,6 @@
 """
     List nearby places
 """
-import os
 import collections
 
 import graph_builder
@@ -11,24 +10,8 @@ from flask import Flask, request, render_template, jsonify
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 
+DEBUG = True
 
-TARGET_FILE = os.path.join(
-    os.path.curdir,
-    'targets.txt'
-)
-
-DEBUG = False
-
-def load_targets():
-
-    target_list = []
-    with open(TARGET_FILE, 'rt') as file:
-        for line in file:
-            target_list.append(
-                line.strip().replace(" ", "_")
-            )
-
-    return target_list
 
 
 def lols_to_dods(lols):
@@ -61,20 +44,20 @@ def dod_to_nestedlists(in_dod):
 def index():
     """ Displays the index page accessible at '/'
     """
+
     if request.method == "POST":
 
         data = request.get_json()
         article_graph = graph_builder.ArticleGraph()
+        print(data)
 
-        if DEBUG:
-            latitude, longitude = 44.8113, -91.4985
-            target_list = ['Green_Bay_Packers', 'Indie_rock']
-        else:
-            latitude, longitude = data['latitude'], data['longitude']
-            target_list = load_targets()
+        latitude, longitude = data['latitude'], data['longitude']
+        topic_list = data['topics']
 
-        article_graph.add_nearby(latitude, longitude, 20)
-        article_graph.add_targets(target_list)
+        article_graph.add_nearby(latitude, longitude, 30)
+        article_graph.add_topics(topic_list)
+        print(article_graph)
+
         article_graph.grow()
 
         article_graph = article_graph.find_all_paths()
@@ -95,6 +78,7 @@ def index():
             nested_lists_by_loc=dod_to_nestedlists(dods_by_loc),
             nested_lists_by_topic=dod_to_nestedlists(dods_by_topic)
         )
+
 
     return render_template('places.html')
 

@@ -2,6 +2,7 @@
 
 <script src="//ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
 <script src="https://kit.fontawesome.com/0308e41efc.js"></script>
+<script src="/static/default_topics.js"></script>
 <script src="/static/places.js"></script>
 
 <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
@@ -16,7 +17,13 @@
     </div>
   </div>
 
-  <div class="row justify-content-end">
+  <div class="row justify-content-between">
+    <div class="col-xs-8">
+      <div class="md-form">
+        <textarea id="topic-form" class="form-control noresize" rows="2" cols=50 placeholder="Make a comma seperated list of your favorite wikipedia page titles here"></textarea>
+      </div>
+    </div>
+    <div class="col-xs-1"></div>
     <div class="col-xs-3">
       <button class="search-button btn-lg">
       <i class="fas fa-search-location"></i> Nearby
