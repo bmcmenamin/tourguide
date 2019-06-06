@@ -1,4 +1,5 @@
-var WIKI_URL =  "https://en.wikipedia.org/wiki/"
+const WIKI_URL =  "https://en.wikipedia.org/wiki/"
+const NUM_INIT_TOPICS = 4
 
 
 function wikititle_to_html(title) {
@@ -24,48 +25,69 @@ function fmt_nested_lists(i) {
     return out_string;
 }
 
+
 $( document ).ready(function() {
+
     var outputEl = document.getElementById( "output-vals" );
 
-
-
+    $( ".form-control" ).val(
+        sample_n_random_topics(NUM_INIT_TOPICS).
+        join(", ").
+        trim()
+    )
+    
     $( ".search-button" ).click(
-        function() { getLocation(); }
+        function() {
+            var topics = getInterestingTopics();
+            getLocation(topics);
+        }
     );
 
-    function getLocation() {
-        outputEl.innerHTML = "Searching...";
+    function getInterestingTopics() {
+        const topicList = $( ".form-control" ).
+            val().
+            split(",").
+            map( x => x.trim().replace(" ", "_") )
+
+        return topicList;
+    }
+
+    function getLocation(topics) {
+        outputEl.innerHTML = "Figuring out where you are ...";
 
         if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(fetchPlaces);
+            navigator.geolocation.getCurrentPosition(
+                x => findConnections(topics, x)
+            );
         } else { 
             outputEl.innerHTML = "Geolocation is not supported by this browser.";
         }
     }
 
-    function fetchPlaces(position) {
+    function findConnections(interestingTopics, position) {
 
-        var data = { 
+        const locationAndInterests = { 
             "latitude": position.coords.latitude, 
-            "longitude": position.coords.longitude
+            "longitude": position.coords.longitude,
+            "topics": interestingTopics
         };
 
         $.ajax({
             url: "/",
             type: "POST",
-            data: JSON.stringify(data),
+            data: JSON.stringify(locationAndInterests),
             contentType: "application/json",
             dataType: "json",
 
             success: function (response) {
+                outputEl.innerHTML = "Checking out what's around here";
                 outputEl.innerHTML = fmt_nested_lists(response["nested_lists_by_topic"])
-                add_toggles()
-
             },
 
             error: function () {
-                outputEl.innerHTML = "An error occured while fetching places";
+                outputEl.innerHTML = "An error occured while finding nearby places";
             }
         });
     }
+
 });

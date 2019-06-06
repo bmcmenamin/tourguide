@@ -15,9 +15,9 @@ class BaseRequester(abc.ABC):
     """Base class for findling links to/from a page"""
 
     INIT_PARAMS = None
-    _PROP_TYPE = None #"links"
-    _CONTINUE_FIELD = None # "plcontinue"
-    _BATCH_SIZE = 1
+    _PROP_TYPE = None
+    _CONTINUE_FIELD = None
+    _BATCH_SIZE = 5
 
     def __init__(self):
         self.session = requests.Session()
@@ -50,6 +50,7 @@ class BaseRequester(abc.ABC):
         return links, continue_str
 
     def _get_all_responses(self, params):
+
         resp = self.session.get(url=API_ENDPOINT, params=params)
         link_list, continue_str = self._parse_response(resp)
 
@@ -69,7 +70,7 @@ class BaseRequester(abc.ABC):
         params = self.INIT_PARAMS.copy()
 
         results = []
-        for chunk in funcy.chunks(self._BATCH_SIZE, page_titles):
+        for chunk in funcy.chunks(min(self._BATCH_SIZE, 5), page_titles):
             chunk = [str(c).replace(" ", "_") for c in chunk]
             params["titles"] = '|'.join(chunk)
             params.pop(self._CONTINUE_FIELD, None)
@@ -207,7 +208,7 @@ class CoordinateFinder(BaseRequester):
         params = self.INIT_PARAMS.copy()
         params["codistancefrompoint"] = "{}|{}".format(*latlon)
         results = []
-        for chunk in funcy.chunks(50, page_titles):
+        for chunk in funcy.chunks(min(self._BATCH_SIZE, 50), page_titles):
             chunk = [str(c).replace(" ", "_") for c in chunk]
             params.pop(self._CONTINUE_FIELD, None)
             params["titles"] = '|'.join(chunk)
