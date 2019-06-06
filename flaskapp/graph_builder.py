@@ -5,6 +5,7 @@ import abc
 import collections
 import itertools
 import functools
+import logging
 import re
 import string
 
@@ -12,6 +13,7 @@ import networkx as nx
 import special_nodes
 import wikidata_interfaces
 
+logging.basicConfig(level=logging.DEBUG)
 
 class SeedRegionGraph(object):
     """
@@ -198,12 +200,12 @@ class ArticleGraph(object):
         return self
 
     def grow(self):
-        print('dilating nearby')
+        logging.info("dilating nearby")
         self.nearby.dilate(inbound=True, outbound=False)
         self.nearby.filter_nodes_by_blacklist()
         self.nearby.filter_nodes_by_distance()
 
-        print('dilating topics')
+        logging.info("dilating topics")
         self.topics.dilate(inbound=True, outbound=True)
         self.topics.filter_nodes_by_blacklist()
 
@@ -244,13 +246,13 @@ class ArticleGraph(object):
             to_undirected(reciprocal=False, as_view=False)
         )
 
-        print('finding paths')
+        logging.info("Finding all paths")
         self.all_paths = {
             topics: self._get_paths_to_topic(full_graph_undir, topics)
             for topics in self.topics.seed_nodes
         }
 
-        print('building pathgraphs')
+        logging.info("Building path subgraphs")
         self.path_graphs = {}
         for topics, paths in self.all_paths.items():
             path_nodes = {node for path in paths for node in path}

@@ -2,10 +2,13 @@
     List nearby places
 """
 import collections
+import logging
 
 import graph_builder
 
 from flask import Flask, request, render_template, jsonify
+
+logging.basicConfig(level=logging.DEBUG)
 
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
@@ -49,17 +52,23 @@ def index():
 
         data = request.get_json()
         article_graph = graph_builder.ArticleGraph()
-        print(data)
+        logging.debug('Data sent to POST endpoint: %s', data)
 
         latitude, longitude = data['latitude'], data['longitude']
         topic_list = data['topics']
 
+        logging.info('Adding nearby nodes')
         article_graph.add_nearby(latitude, longitude, 30)
+
+        logging.info('Adding topic nodes')
         article_graph.add_topics(topic_list)
-        print(article_graph)
 
+        logging.debug('Pre-dilation article graph: %s', article_graph)
+        logging.info('Dilating graph')
         article_graph.grow()
+        logging.debug('Post-dilation article graph: %s', article_graph)
 
+        logging.info('Searching for paths')
         article_graph = article_graph.find_all_paths()
 
         dods_by_loc = lols_to_dods(

@@ -3,12 +3,15 @@
 """
 
 import abc
+import logging
 
 import funcy
 import requests
 
 
 API_ENDPOINT = "https://en.wikipedia.org/w/api.php"
+
+logging.basicConfig(level=logging.DEBUG)
 
 
 class BaseRequester(abc.ABC):
@@ -56,6 +59,8 @@ class BaseRequester(abc.ABC):
 
         while continue_str:
 
+            logging.info("Continuing queries on %s", type(self).__name__)
+
             params[self._CONTINUE_FIELD] = continue_str
             resp = self.session.get(
                 url=API_ENDPOINT,
@@ -67,6 +72,7 @@ class BaseRequester(abc.ABC):
         return link_list
 
     def get_payload(self, page_titles):
+
         params = self.INIT_PARAMS.copy()
 
         results = []
@@ -74,6 +80,13 @@ class BaseRequester(abc.ABC):
             chunk = [str(c).replace(" ", "_") for c in chunk]
             params["titles"] = '|'.join(chunk)
             params.pop(self._CONTINUE_FIELD, None)
+
+            logging.info(
+                "Getting payload on query %s for titles %s",
+                type(self).__name__,
+                chunk
+            )
+
             resp = self._get_all_responses(params)
             results.extend(resp)
 
@@ -150,6 +163,13 @@ class NearbyFinder(BaseRequester):
         params = self.INIT_PARAMS.copy()
         params["gscoord"] = "{}|{}".format(lat, lon)
         params["gslimit"] = num_nearby
+
+        logging.info(
+            "Getting payload query %s for latlon (%s, %s)",
+            type(self).__name__,
+            lat, lon
+        )
+
         return self._get_all_responses(params)
 
 
@@ -212,6 +232,15 @@ class CoordinateFinder(BaseRequester):
             chunk = [str(c).replace(" ", "_") for c in chunk]
             params.pop(self._CONTINUE_FIELD, None)
             params["titles"] = '|'.join(chunk)
+
+            logging.info(
+                "Getting payload on query %s for titles %s relative to (%s, %s)",
+                type(self).__name__,
+                chunk,
+                latlon[0],
+                latlon[1]
+            )
+
             resp = self._get_all_responses(params)
             results.extend(resp)
         return results
