@@ -16,7 +16,6 @@ app.config['TEMPLATES_AUTO_RELOAD'] = True
 DEBUG = True
 
 
-
 def lols_to_dods(lols):
     temp_dict = collections.defaultdict(list)
     for l in lols:
