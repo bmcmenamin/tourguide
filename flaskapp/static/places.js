@@ -2,27 +2,52 @@ const WIKI_URL =  "https://en.wikipedia.org/wiki/"
 const NUM_INIT_TOPICS = 4
 
 
+var paths_by_topic = []
+var paths_by_nearby = []
+
 function wikititle_to_html(title) {
     url = WIKI_URL + title.split(" ").join("_")
     return "<a href=" + url + ">" + title.split("_").join(" ") + "<a>";
 }
 
-function fmt_nested_lists(i) {
+
+function fmt_nested_lists(input) {
+
     var out_string = ""
 
-    if (Array.isArray(i)) {
+    if (Array.isArray(input)) {
         out_string = "<div>"
           + "<ul class=\"list-group border-0 \">"
-          + i.map(fmt_nested_lists).join("\n")
+          + input.map(fmt_nested_lists).join("\n")
           + "</ul>"
         + "</div>";                        
     }
     else {
         out_string = "<li class=\"list-group-item border-0\">"
-        + wikititle_to_html(i)
+        + wikititle_to_html(input)
         + "</il>";
     }
+
     return out_string;
+}
+
+
+function getWikiLinks() {
+
+    var groupby = $( ".dropdown-menu" ).
+        find( ".dropdown-item.active" ).
+        attr('value')
+
+    var output = ""
+
+    if (groupby == "groupby-topic") {
+        output = fmt_nested_lists(paths_by_topic);
+    }
+    else {
+        output = fmt_nested_lists(paths_by_nearby);
+    }
+
+    return output;
 }
 
 
@@ -34,9 +59,25 @@ $( document ).ready(function() {
         sample_n_random_topics(NUM_INIT_TOPICS).
         join(", ").
         trim()
-    )
-    
-    $( ".search-button" ).click(
+    );
+
+    $( ".dropdown-menu" ).
+        find( ".dropdown-item" ).
+        on(
+            "click",
+            function(){
+                $(this).
+                    parent( ".dropdown-menu" ).
+                    find( ".dropdown-item.active" ).
+                    removeClass( "active" );
+
+                $(this).addClass( "active" );
+                outputEl.innerHTML = getWikiLinks()
+            }
+    );
+
+    $( ".search-button" ).on(
+        'click',
         function() {
             var topics = getInterestingTopics();
             getLocation(topics);
@@ -52,6 +93,7 @@ $( document ).ready(function() {
         return topicList;
     }
 
+
     function getLocation(topics) {
         outputEl.innerHTML = "Figuring out where you are ...";
 
@@ -63,6 +105,7 @@ $( document ).ready(function() {
             outputEl.innerHTML = "Geolocation is not supported by this browser.";
         }
     }
+
 
     function findConnections(interestingTopics, position) {
 
@@ -78,16 +121,13 @@ $( document ).ready(function() {
             data: JSON.stringify(locationAndInterests),
             contentType: "application/json",
             dataType: "json",
-
             success: function (response) {
-                outputEl.innerHTML = "Checking out what's around here";
-                outputEl.innerHTML = fmt_nested_lists(response["nested_lists_by_topic"])
-            },
-
-            error: function () {
-                outputEl.innerHTML = "An error occured while finding nearby places";
+                paths_by_topic = response["nested_lists_by_topic"]
+                paths_by_nearby = response["nested_lists_by_nearby"]
+                outputEl.innerHTML = getWikiLinks()
             }
         });
+
     }
 
 });

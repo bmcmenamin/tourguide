@@ -26,6 +26,15 @@ button {
     background-color: #7c7ce0;
 }
 
+.btn {
+    background-color: #d3d3d3;    
+}
+
+textarea {
+    resize: none;
+    margin-bottom:1%;
+}
+
 .list-group {
     padding: 1px 3px
 }

@@ -1,38 +1,64 @@
-<title>Wiki Tour Guide</title>
+<head>
+  <title>Wiki Tour Guide</title>
+  <link rel='icon' href='favicon.ico' type='image/x-icon' sizes="16x16">
 
-<script src="//ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-<script src="https://kit.fontawesome.com/0308e41efc.js"></script>
-<script src="/static/default_topics.js"></script>
-<script src="/static/places.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
 
-<link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
-<link rel="stylesheet" href="/static/style.css">
+  <script src="https://kit.fontawesome.com/0308e41efc.js"></script>
+  <script src="/static/default_topics.js"></script>
+  <script src="/static/places.js"></script>
 
+  <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
 
-<div class="container col-xs-12">
-  <div class="row justify-content-start">
+<body>
+  <div class="container col-xs-12">
 
-    <div class="col-xs-9">
-      <h1 class="h1">Find interesting things</h1>
-    </div>
-  </div>
-
-  <div class="row justify-content-between">
-    <div class="col-xs-8">
-      <div class="md-form">
-        <textarea id="topic-form" class="form-control noresize" rows="2" cols=50 placeholder="Make a comma seperated list of your favorite wikipedia page titles here"></textarea>
+    <div class="row justify-content-start">
+      <div class="col-xs-9">
+        <h1 class="h1">Find interesting things around you</h1>
       </div>
     </div>
-    <div class="col-xs-1"></div>
-    <div class="col-xs-3">
-      <button class="search-button btn-lg">
-      <i class="fas fa-search-location"></i> Nearby
-      </button>
+
+    <div class="row justify-content-start">
+      <div class="col-xs-10">
+        <div class="md-form">
+          <textarea
+            id="topic-form" class="form-control noresize"
+            rows=1 cols=80 maxlength=150
+            placeholder="Make a comma seperated list of Wikipedia page titles">
+          </textarea>
+        </div>
+      </div>
     </div>
 
-  </div>
-</div>
+    <div class="row justify-content-end">
 
-<div class="container col-xs-12">
-  <div class="body list-group" id="output-vals"></div>
-</div>
+      <div class="col-xs-3">
+        <div class="btn-group">
+
+          <button type="button" class="grouping-button btn dropdown-toggle w-100" data-toggle="dropdown">
+            Group Results by
+          </button>
+
+          <div class="dropdown-menu">
+            <a class="dropdown-item active" value="groupby-topic">Topic</a>
+            <a class="dropdown-item" value="groupby-nearby">Location</a>
+          </div>
+
+        <button class="search-button btn w-100">
+          <i class="fas fa-search"></i>Go
+        </button>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="container col-xs-12">
+    <div class="body list-group" id="output-vals"></div>
+  </div>
+
+</body>

@@ -71,7 +71,7 @@ def index():
         logging.info('Searching for paths')
         article_graph = article_graph.find_all_paths()
 
-        dods_by_loc = lols_to_dods(
+        dods_by_nearby = lols_to_dods(
             path
             for pathlist in article_graph.all_paths.values()
             for path in pathlist
@@ -84,10 +84,9 @@ def index():
         )
 
         return jsonify(
-            nested_lists_by_loc=dod_to_nestedlists(dods_by_loc),
+            nested_lists_by_nearby=dod_to_nestedlists(dods_by_nearby),
             nested_lists_by_topic=dod_to_nestedlists(dods_by_topic)
         )
-
 
     return render_template('places.html')
 
