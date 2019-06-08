@@ -6,11 +6,10 @@ import logging
 
 import networkx as nx
 
-from region_subgraph import RegionSubGraph, RegionSubGraphPlusDistanceFilter
+from region_subgraph import RegionSubGraphByName, RegionSubGraphByNearby
 
 
 logging.basicConfig(level=logging.DEBUG)
-
 
 
 def lols_to_dods(lols):
@@ -28,6 +27,7 @@ def lols_to_dods(lols):
         }
 
     return sorted([l[0] for l in lols if len(l) == 1])
+
 
 def dod_to_nestedlists(in_dod):
 
@@ -49,23 +49,23 @@ class ArticleNetwork(object):
         )
         return out_str
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self,  latlon, **kwargs):
+        self.latlon = latlon
         self.nearby = None
         self.topics = None
-        self.all_paths = {}
+        self.all_paths = None
 
-    def add_nearby(self, lat, lon, num_nearby=10):
-        self.nearby = RegionSubGraphPlusDistanceFilter(
-            lat, lon, num_nearby=num_nearby)
+    def add_nearby(self, num_nearby=10):
+        self.nearby = RegionSubGraphByNearby(self.latlon, num_nearby)
         return self
 
     def add_topics(self, topic_nodes):
-        self.topics = RegionSubGraph(topic_nodes)
+        self.topics = RegionSubGraphByName(topic_nodes)
         return self
 
     def grow(self):
         logging.info("dilating nearby")
-        self.nearby.dilate(inbound=True, outbound=False)
+        self.nearby.dilate(inbound=True, outbound=True)
         self.nearby.filter_nodes_by_blacklist()
         self.nearby.filter_nodes_by_distance()
 
@@ -105,12 +105,11 @@ class ArticleNetwork(object):
             to_undirected(reciprocal=False, as_view=False)
         )
 
-        logging.info("Finding all paths")
+        logging.info("Looking for paths")
         self.all_paths = {
             topics: self._get_paths_to_topic(full_graph_undir, topics)
             for topics in self.topics.seed_nodes
         }
-        print(self.all_paths)
         return self
 
     def get_nested_paths(self):
@@ -134,3 +133,12 @@ class ArticleNetwork(object):
         }
 
         return responses
+
+    def path_status(self):
+
+        if isinstance(self.all_paths, dict):
+            has_a_path = any(len(pl) > 0 for pl in self.all_paths.values())
+            if has_a_path:
+                return 'has_paths'
+            return 'no_paths'
+        return 'unknown'

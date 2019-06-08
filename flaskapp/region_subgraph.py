@@ -1,7 +1,7 @@
 """
     Assemble a graph from API calls
 """
-
+import abc
 import collections
 import logging
 import string
@@ -14,7 +14,7 @@ import wikidata_interfaces
 logging.basicConfig(level=logging.DEBUG)
 
 
-class RegionSubGraph(object):
+class RegionSubGraph(abc.ABC):
     """
         Biuld a subgraph around a set of seed nodes
     """
@@ -31,7 +31,7 @@ class RegionSubGraph(object):
             seeds="\n\t".join(print_nodes)
         )
 
-    def __init__(self, seed_nodes):
+    def __init__(self):
         self.seed_nodes = set()
         self.graph = nx.DiGraph()
 
@@ -40,8 +40,6 @@ class RegionSubGraph(object):
 
         self.inbound_link_finder = wikidata_interfaces.InLinkFinder()
         self.outbound_link_finder = wikidata_interfaces.OutLinkFinder()
-
-        self.add_seeds(seed_nodes)
 
     def add_seeds(self, nodes):
         nodes = {
@@ -108,18 +106,22 @@ class RegionSubGraph(object):
         return self
 
 
-class RegionSubGraphPlusDistanceFilter(RegionSubGraph):
+class RegionSubGraphByName(RegionSubGraph):
     """
         Biuld a subgraph around a set of seed nodes but also
         include the ability for filtering out nodes by distance
     """
 
-    def __init__(self, lat, lon, num_nearby=10):
-        self.dist_finder = wikidata_interfaces.CoordinateFinder()
-        self.geo_finder = wikidata_interfaces.NearbyFinder()
-        self.latlon = (lat, lon)
-        self.node_dists = {}
-        super().__init__(self._lookup_nearby(num_nearby))
+    def __init__(self, seed_nodes):
+        super().__init__()
+        self.add_seeds(seed_nodes)
+
+
+class RegionSubGraphByNearby(RegionSubGraph):
+    """
+        Biuld a subgraph around a set of seed nodes but also
+        include the ability for filtering out nodes by distance
+    """
 
     def _lookup_nearby(self, num_nearby):
         return self.geo_finder.get_payload(*self.latlon, num_nearby)
@@ -154,3 +156,15 @@ class RegionSubGraphPlusDistanceFilter(RegionSubGraph):
         }
 
         self.graph.remove_nodes_from(bad_nodes - self.seed_nodes)
+
+    def __init__(self, latlon, num_nearby):
+        super().__init__()
+
+        self.dist_finder = wikidata_interfaces.CoordinateFinder()
+        self.geo_finder = wikidata_interfaces.NearbyFinder()
+
+        self.latlon = latlon
+        self.node_dists = {}
+
+        nearby = self._lookup_nearby(num_nearby)
+        self.add_seeds(nearby)

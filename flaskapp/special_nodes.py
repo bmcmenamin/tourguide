@@ -28,6 +28,7 @@ NODE_BLACKLIST = {
     "International_Standard_Name_Identifier",
     "International_Standard_Serial_Number",
     "Joconde",
+    "JSTOR",
     "KulturNav",
     "Library_of_Congress_Control_Number",
     "LIBRIS",

@@ -11,7 +11,7 @@ import requests
 
 API_ENDPOINT = "https://en.wikipedia.org/w/api.php"
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 
 class BaseRequester(abc.ABC):
