@@ -130,7 +130,7 @@ class NearbyFinder(BaseRequester):
         "action": "query",
         "format": "json",
         "list": "geosearch",
-        "gsradius":10000,
+        "gsradius": 10000,
         "gsnamespace": 0,
         "gsprop": "name",
         "gsprimary": "primary"
@@ -206,7 +206,6 @@ class CoordinateFinder(BaseRequester):
             get("pages", {})
         )
 
-
         links = [
             (
                 pageid_data['title'].replace(" ", "_"),
@@ -234,11 +233,8 @@ class CoordinateFinder(BaseRequester):
             params["titles"] = '|'.join(chunk)
 
             logging.info(
-                "Getting payload on query %s for titles %s relative to (%s, %s)",
-                type(self).__name__,
-                chunk,
-                latlon[0],
-                latlon[1]
+                "Getting payload on query %s for titles %s relative to %s",
+                type(self).__name__, chunk, latlon
             )
 
             resp = self._get_all_responses(params)

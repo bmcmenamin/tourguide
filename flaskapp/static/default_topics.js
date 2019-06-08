@@ -1,3 +1,5 @@
+const NUM_INIT_TOPICS = 4
+
 const DEFAULT_TOPICS = [
     "Huey Long",
     "Richard Nixon",
@@ -24,9 +26,12 @@ const DEFAULT_TOPICS = [
     "List of cryptids"
 ]
 
-function sample_n_random_topics(n) {
+function formatSampleOfTopics(numTopics) {
     var topics = DEFAULT_TOPICS.
-        sort( () => 0.5 - Math.random()).
-        slice(1, n + 1);
-    return topics
+        sort( () => 0.5 - Math.random() ).
+        slice(1, numTopics + 1).
+        join("; ").
+        trim()
+
+    return topics;
 }
