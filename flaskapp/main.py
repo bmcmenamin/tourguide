@@ -5,7 +5,8 @@ import collections
 import logging
 import uuid
 
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, Response, request, session, jsonify, render_template, make_response
+
 
 import article_network
 
@@ -13,75 +14,72 @@ logging.basicConfig(level=logging.INFO)
 
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
+app.secret_key = "OHnM3KAkTEhsI&j6"
 
 DEBUG = True
 NUM_NEARBY = 30
 
-REQUEST_STATUSES = collections.defaultdict(list)
+
+@app.route('/clearSession', methods=['POST'])
+def clear_session():
+    session.clear()
+    session.modified = True
+    logging.debug('Hit endpoint /clearSession')
+    return make_response(jsonify({}), 200)
 
 
-@app.route('/queryStatus', methods=['POST'])
-def query_status():
-    request_id = request.get_json()['request_id']
-    status_dict = {"query_status": REQUEST_STATUSES[request_id]}
-    return jsonify(status_dict)
+@app.route('/setLocation', methods=['POST'])
+def set_location():
+    user_input = request.get_json()
+    session['latlon'] = (user_input['latitude'], user_input['longitude'])
+    session.modified = True
+    logging.debug('Data received at endpoint /setLocation: %s', session['latlon'])
+    return make_response(jsonify(session['latlon']), 200)
+
+
+@app.route('/setTopics', methods=['POST'])
+def set_topics():
+    session['topics'] = request.get_json()
+    session.modified = True
+    logging.debug('Data received at endpoint /setTopics: %s', session['topics'])
+    return make_response(jsonify(session['topics']), 200)
 
 
 @app.route('/runQuery', methods=['POST'])
 def run_query():
     """ Displays the index page accessible at '/'
     """
-    user_input = request.get_json()
-    user_latlon = (user_input['latitude'], user_input['longitude'])
+    print(session)
+
     output = {}
-    logging.debug('Data received as POST endpoint: %s', user_input)
-
-    anet = article_network.ArticleNetwork(user_latlon)
-
-    REQUEST_STATUSES[user_input['request_id']] = ["Starting search"]
+    anet = article_network.ArticleNetwork(session['latlon'])
 
     # Add nearby
     logging.info('Adding nearby nodes')
     anet.add_nearby(NUM_NEARBY)
     output['nearby_seeds'] = list(sorted(anet.nearby.seed_nodes))
-    REQUEST_STATUSES[user_input['request_id']].append(
-        "Using {} points of interest near ({:.2f}, {:.2f})".format(
-            len(output['nearby_seeds']), user_latlon[0], user_latlon[1]
-        )
-    )
 
     # Add topics
     logging.info('Adding topic nodes')
-    anet.add_topics(user_input['topics'])
+    anet.add_topics(session['topics'])
     output['topic_seeds'] = list(sorted(anet.topics.seed_nodes))
-    REQUEST_STATUSES[user_input['request_id']].append(
-        "Found {} topic(s) of interest".format(
-            len(output['topic_seeds'])
-        )
-    )
 
     logging.debug('Pre-dilation article graph: %s', anet)
 
     # Dilate
     logging.info('Dilating graph')
-    REQUEST_STATUSES[user_input['request_id']].append(
-        "Looking for connections (be patient)"
-    )
     anet.grow()
     logging.debug('Post-dilation article graph: %s', anet)
 
     logging.info('Searching for paths')
-    REQUEST_STATUSES[user_input['request_id']].append(
-        "... almost done"
-    )
     anet.find_all_paths()
 
-    REQUEST_STATUSES.pop(user_input['request_id'], None)
     output['path_status'] = anet.path_status()
     output.update(anet.get_nested_paths())
 
     logging.info('Returning output %s', output)
-    return jsonify(**output)
+    return make_response(jsonify(**output), 200)
+
 
 
 @app.route('/', methods=['GET'])
@@ -89,7 +87,6 @@ def index():
     """ Displays the index page accessible at '/'
     """
     return render_template('places.html')
-
 
 if __name__ == '__main__':
     app.run(
