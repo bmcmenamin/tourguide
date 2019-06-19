@@ -5,7 +5,9 @@ import collections
 import logging
 import uuid
 
-from flask import Flask, Response, request, session, jsonify, render_template, make_response
+from flask import (
+    Flask, Response, request, session, jsonify, render_template, make_response
+)
 
 
 import article_network
@@ -16,7 +18,7 @@ app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.secret_key = "OHnM3KAkTEhsI&j6"
 
-DEBUG = True
+DEBUG = False
 NUM_NEARBY = 15
 
 
@@ -32,16 +34,20 @@ def clear_session():
 def set_location():
     user_input = request.get_json()
     session['latlon'] = (user_input['latitude'], user_input['longitude'])
-    session.modified = True
-    logging.info('Data received at endpoint /setLocation: %s', session['latlon'])
+    logging.info(
+        'Data received at endpoint /setLocation: %s',
+        session['latlon']
+    )
     return make_response(jsonify(session['latlon']), 200)
 
 
 @app.route('/setTopics', methods=['POST'])
 def set_topics():
     session['topics'] = request.get_json()
-    session.modified = True
-    logging.info('Data received at endpoint /setTopics: %s', session['topics'])
+    logging.info(
+        'Data received at endpoint /setTopics: %s',
+        session['topics']
+    )
     return make_response(jsonify(session['topics']), 200)
 
 
@@ -49,7 +55,6 @@ def set_topics():
 def run_query():
     """ Displays the index page accessible at '/'
     """
-
     output = {}
     anet = article_network.ArticleNetwork(session['latlon'])
 
@@ -60,7 +65,6 @@ def run_query():
 
     # Add topics
     logging.info('Adding topic nodes')
-    print(session['topics'])
     anet.add_topics(session['topics'])
     output['topic_seeds'] = list(sorted(anet.topics.seed_nodes))
 
@@ -81,12 +85,12 @@ def run_query():
     return make_response(jsonify(**output), 200)
 
 
-
 @app.route('/', methods=['GET'])
 def index():
     """ Displays the index page accessible at '/'
     """
     return render_template('places.html')
+
 
 if __name__ == '__main__':
     app.run(

@@ -1,6 +1,6 @@
 $( document ).ready(function() {
 
-    var ajaxRunningQuery;
+
     var outputElement = document.getElementById( "output-vals" );
 
 
@@ -9,7 +9,7 @@ $( document ).ready(function() {
             val().
             split(";").
             map( x => x.trim().replace(" ", "_") ).
-            filter( x => x.length > 1)
+            filter( x => x.length > 1);
         return formData;
     }
 
@@ -45,12 +45,12 @@ $( document ).ready(function() {
 
     function clearSession() {
 
-        $.ajax({
+        return $.ajax({
             url: "/clearSession",
             type: "POST",
             contentType: "application/json",
             dataType: "json",
-        });
+        })
     }
 
 
@@ -70,7 +70,7 @@ $( document ).ready(function() {
             });
         }
 
-        navigator.geolocation.getCurrentPosition(
+        return navigator.geolocation.getCurrentPosition(
             function(pos) {
                 good_func({
                     "latitude": pos.coords.latitude, 
@@ -81,19 +81,19 @@ $( document ).ready(function() {
     }
 
 
-    function setTopics() {
+    function setTopics(topics) {
 
-        $.ajax({
+        return $.ajax({
             url: "/setTopics",
             type: "POST",
-            data: JSON.stringify(readTopicForm()),
+            data: JSON.stringify(topics),
             contentType: "application/json",
             dataType: "json",
             error: function (queryResponse) {
                 path_status = "error"
                 outputElement.innerHTML = generateMainOutput()
             }
-        });
+        })
 
     }
 
@@ -106,7 +106,7 @@ $( document ).ready(function() {
             seedsByTopic = queryResponse["topic_seeds"]
             seedsByNearby = queryResponse["nearby_seeds"]
             path_status = queryResponse["path_status"]
-            outputElement.innerHTML = generateMainOutput()
+            outputElement.innerHTML = generateMainOutput();
         }
 
         var bad_func = function (queryResponse) {
@@ -115,17 +115,17 @@ $( document ).ready(function() {
             seedsByTopic = []
             seedsByNearby = []
             path_status = "error"
-            outputElement.innerHTML = generateMainOutput()
+            outputElement.innerHTML = generateMainOutput();
         }
 
-        ajaxRunningQuery = $.ajax({
+        return $.ajax({
             url: "/runQuery",
             type: "POST",
             contentType: "application/json",
             dataType: "json",
             success: good_func,
             error: bad_func
-        });        
+        })
     }
 
 
@@ -153,28 +153,15 @@ $( document ).ready(function() {
         'click',
         function() {
 
-            try { ajaxRunningQuery.abort(); } catch {}
-
             path_status = "searching";
 
-            $.when(
-                function() {
-                    clearSession()
-                    outputElement.innerHTML = generateMainOutput()
-                }
+            var promises = clearSession().then(
+                setTopics(readTopicForm())
             ).then(
-                function() {
-                    setTopics()
-                    outputElement.innerHTML = generateMainOutput()
-                }
-            ).then(
-                function() {
-                    setLocation()
-                    outputElement.innerHTML = generateMainOutput()
-                }
+                setLocation
             ).then(
                 runQuery
-            )
+            );
 
         }
     );
