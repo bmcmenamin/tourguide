@@ -9,7 +9,7 @@ import networkx as nx
 from region_subgraph import RegionSubGraphByName, RegionSubGraphByNearby
 
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 
 def lols_to_dods(lols):

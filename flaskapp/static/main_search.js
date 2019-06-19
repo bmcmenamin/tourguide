@@ -43,19 +43,18 @@ $( document ).ready(function() {
     }
 
 
-    function clearSession(success_callback) {
+    function clearSession() {
 
         $.ajax({
             url: "/clearSession",
             type: "POST",
             contentType: "application/json",
             dataType: "json",
-            success: success_callback,
         });
     }
 
 
-    function setLocation(success_callback) {
+    function setLocation() {
 
         var good_func = function (location) {
             $.ajax({
@@ -64,7 +63,6 @@ $( document ).ready(function() {
                 data: JSON.stringify(location),
                 contentType: "application/json",
                 dataType: "json",
-                success: success_callback, 
                 error: function (queryResponse) {
                     path_status = "error"
                     outputElement.innerHTML = generateMainOutput()
@@ -82,7 +80,8 @@ $( document ).ready(function() {
         );
     }
 
-    function setTopics(success_callback) {
+
+    function setTopics() {
 
         $.ajax({
             url: "/setTopics",
@@ -90,7 +89,6 @@ $( document ).ready(function() {
             data: JSON.stringify(readTopicForm()),
             contentType: "application/json",
             dataType: "json",
-            success: success_callback, 
             error: function (queryResponse) {
                 path_status = "error"
                 outputElement.innerHTML = generateMainOutput()
@@ -98,6 +96,7 @@ $( document ).ready(function() {
         });
 
     }
+
 
     function runQuery() {
 
@@ -149,17 +148,34 @@ $( document ).ready(function() {
 
     );
 
+
     $( ".search-button" ).on(
         'click',
         function() {
+
             try { ajaxRunningQuery.abort(); } catch {}
 
             path_status = "searching";
-            clearSession(
-                setLocation(setTopics(
-                    runQuery()
-                ))
+
+            $.when(
+                function() {
+                    clearSession()
+                    outputElement.innerHTML = generateMainOutput()
+                }
+            ).then(
+                function() {
+                    setTopics()
+                    outputElement.innerHTML = generateMainOutput()
+                }
+            ).then(
+                function() {
+                    setLocation()
+                    outputElement.innerHTML = generateMainOutput()
+                }
+            ).then(
+                runQuery
             )
+
         }
     );
 

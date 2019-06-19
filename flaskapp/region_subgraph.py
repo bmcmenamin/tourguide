@@ -11,7 +11,7 @@ import special_nodes
 import wikidata_interfaces
 
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 
 class RegionSubGraph(abc.ABC):

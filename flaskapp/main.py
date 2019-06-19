@@ -17,14 +17,14 @@ app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.secret_key = "OHnM3KAkTEhsI&j6"
 
 DEBUG = True
-NUM_NEARBY = 30
+NUM_NEARBY = 15
 
 
 @app.route('/clearSession', methods=['POST'])
 def clear_session():
     session.clear()
     session.modified = True
-    logging.debug('Hit endpoint /clearSession')
+    logging.info('Hit endpoint /clearSession')
     return make_response(jsonify({}), 200)
 
 
@@ -33,7 +33,7 @@ def set_location():
     user_input = request.get_json()
     session['latlon'] = (user_input['latitude'], user_input['longitude'])
     session.modified = True
-    logging.debug('Data received at endpoint /setLocation: %s', session['latlon'])
+    logging.info('Data received at endpoint /setLocation: %s', session['latlon'])
     return make_response(jsonify(session['latlon']), 200)
 
 
@@ -41,7 +41,7 @@ def set_location():
 def set_topics():
     session['topics'] = request.get_json()
     session.modified = True
-    logging.debug('Data received at endpoint /setTopics: %s', session['topics'])
+    logging.info('Data received at endpoint /setTopics: %s', session['topics'])
     return make_response(jsonify(session['topics']), 200)
 
 
@@ -49,7 +49,6 @@ def set_topics():
 def run_query():
     """ Displays the index page accessible at '/'
     """
-    print(session)
 
     output = {}
     anet = article_network.ArticleNetwork(session['latlon'])
@@ -61,15 +60,16 @@ def run_query():
 
     # Add topics
     logging.info('Adding topic nodes')
+    print(session['topics'])
     anet.add_topics(session['topics'])
     output['topic_seeds'] = list(sorted(anet.topics.seed_nodes))
 
-    logging.debug('Pre-dilation article graph: %s', anet)
+    logging.info('Pre-dilation article graph: %s', anet)
 
     # Dilate
     logging.info('Dilating graph')
     anet.grow()
-    logging.debug('Post-dilation article graph: %s', anet)
+    logging.info('Post-dilation article graph: %s', anet)
 
     logging.info('Searching for paths')
     anet.find_all_paths()
