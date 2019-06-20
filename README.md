@@ -11,3 +11,12 @@ Let's say that you're walking through [Prospect Park, Brooklyn](https://en.wikip
 * The special effects for Star Trek were created by [Linwood G. Dunn](https://en.wikipedia.org/wiki/Linwood_G._Dunn) that attended a nearby [high school](John_Jay_Educational_Campus_(Brooklyn))
 * [Patrick Stewart](https://en.wikipedia.org/wiki/Patrick_Stewart) lives in nearby [Park Slope](https://en.wikipedia.org/wiki/Park_Slope)
 * [Isaac Asimov](https://en.wikipedia.org/wiki/Isaac_Asimov) grew up in nearby [Windsor Terrace](https://en.wikipedia.org/wiki/Windsor_Terrace,_Brooklyn)
+
+
+## Usage
+
+This is set up to run using Google App Engine, and there is an instance running [here](https://coastal-epigram-162302.appspot.com/) (note: this may be taken down at any time because I don't want to pay for it forever).
+
+To run a search, provide a semicolon-delimited list of wikipedia page titles and then click the search icon. Wait. Then browse the list of wikipages to find fun things.
+
+It'd be nice if you'd see updates while it's searching, but I'm done play8ing with JavaScript.
