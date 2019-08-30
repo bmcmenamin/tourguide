@@ -5,9 +5,9 @@
 import abc
 import logging
 
-import funcy
 import requests
 
+from firestore_cacher import firestore_cache_wrapper
 
 API_ENDPOINT = "https://en.wikipedia.org/w/api.php"
 
@@ -26,7 +26,6 @@ class BaseRequester(abc.ABC):
         self.session = requests.Session()
 
     def _parse_response(self, resp):
-
         resp_dict = resp.json()
 
         pages = (
@@ -36,10 +35,10 @@ class BaseRequester(abc.ABC):
         )
 
         links = [
-            (
-                pageid_data['title'].replace(" ", "_"),
-                l['title'].replace(" ", "_")
-            )
+            {
+                "from": pageid_data['title'].replace(" ", "_"),
+                "to": l['title'].replace(" ", "_")
+            }
             for pageid_data in pages.values()
             for l in pageid_data.get(self._PROP_TYPE, [])
         ]
@@ -52,43 +51,47 @@ class BaseRequester(abc.ABC):
 
         return links, continue_str
 
-    def _get_all_responses(self, params):
+    def _get_api_responses(self, params):
 
-        resp = self.session.get(url=API_ENDPOINT, params=params)
-        link_list, continue_str = self._parse_response(resp)
-
-        while continue_str:
-
-            logging.info("Continuing queries on %s", type(self).__name__)
-
-            params[self._CONTINUE_FIELD] = continue_str
+        @firestore_cache_wrapper("_get_api_responses")
+        def _fetch(params):
             resp = self.session.get(
                 url=API_ENDPOINT,
                 params=params
             )
-            _links, continue_str = self._parse_response(resp)
-            link_list += _links
+            link_list, continue_str = self._parse_response(resp)
 
-        return link_list
+            while continue_str:
+
+                logging.info("Continuing queries on %s", type(self).__name__)
+
+                params[self._CONTINUE_FIELD] = continue_str
+                resp = self.session.get(
+                    url=API_ENDPOINT,
+                    params=params
+                )
+                _links, continue_str = self._parse_response(resp)
+                link_list += _links
+
+            return link_list
+
+        return _fetch(params)
 
     def get_payload(self, page_titles):
 
         params = self.INIT_PARAMS.copy()
 
+        page_titles = (
+            str(p).replace(" ", "_")
+            for p in page_titles
+        )
+
         results = []
-        for chunk in funcy.chunks(min(self._BATCH_SIZE, 5), page_titles):
-            chunk = [str(c).replace(" ", "_") for c in chunk]
-            params["titles"] = '|'.join(chunk)
+        for page_title in page_titles:
+            params["titles"] = page_title
             params.pop(self._CONTINUE_FIELD, None)
-
-            logging.info(
-                "Getting payload on query %s for titles %s",
-                type(self).__name__,
-                chunk
-            )
-
-            resp = self._get_all_responses(params)
-            results.extend(resp)
+            result = self._get_api_responses(params)
+            results.extend(result)
 
         return results
 
@@ -170,7 +173,7 @@ class NearbyFinder(BaseRequester):
             lat, lon
         )
 
-        return self._get_all_responses(params)
+        return self._get_api_responses(params)
 
 
 class CategoryFinder(BaseRequester):
@@ -207,10 +210,10 @@ class CoordinateFinder(BaseRequester):
         )
 
         links = [
-            (
-                pageid_data['title'].replace(" ", "_"),
-                l.get('dist', -1)
-            )
+            {
+                "from": pageid_data['title'].replace(" ", "_"),
+                "to": l.get('dist', -1)
+            }
             for pageid_data in pages.values()
             for l in pageid_data.get(self._PROP_TYPE, [])
         ]
@@ -227,16 +230,15 @@ class CoordinateFinder(BaseRequester):
         params = self.INIT_PARAMS.copy()
         params["codistancefrompoint"] = "{}|{}".format(*latlon)
         results = []
-        for chunk in funcy.chunks(min(self._BATCH_SIZE, 50), page_titles):
-            chunk = [str(c).replace(" ", "_") for c in chunk]
+        for page_title in page_titles:
+            params["titles"] = page_title
             params.pop(self._CONTINUE_FIELD, None)
-            params["titles"] = '|'.join(chunk)
 
             logging.info(
                 "Getting payload on query %s for titles %s relative to %s",
-                type(self).__name__, chunk, latlon
+                type(self).__name__, page_title, latlon
             )
 
-            resp = self._get_all_responses(params)
+            resp = self._get_api_responses(params)
             results.extend(resp)
         return results
