@@ -4,13 +4,24 @@
 import functools
 import hashlib
 import logging
+import pickle
+import zlib
 
 from time import time
 
 from google.cloud import firestore
+from google.api_core.exceptions import InvalidArgument
 
 
 logging.basicConfig(level=logging.INFO)
+
+
+def to_zip_string(obj):
+    return zlib.compress(pickle.dumps(obj))
+
+
+def unzip_string(zip_str):
+    return pickle.loads(zlib.decompress(zip_str))
 
 
 class FirestoreCacher(object):
@@ -51,7 +62,6 @@ class FirestoreCacher(object):
 
         self.subcollection = subcollection
         self.max_lapsed_days = max_lapsed_days
-
         self.fs_db = firestore.Client()
 
         self.fs_collection = (
@@ -83,50 +93,29 @@ class FirestoreCacher(object):
         logging.info(
             "Found key-value for {}/{}.".format(self.subcollection, key))
 
-        return doc_data._data
+        zipped_string = doc_data._data.get('val')
+        if zipped_string:
+            return unzip_string(zipped_string)
 
     def upsert_val_for_key(self, key, val):
 
         document = self.fs_collection.document(key)
         doc_data = document.get()
 
-        if doc_data.exists:
-            logging.info(
-                "Updating key-value for {}/{} found."
-                .format(self.subcollection, key)
+        to_cache = {'val': to_zip_string(val)}
+
+        try:
+            if doc_data.exists:
+                logging.info(
+                    "Updating key-value for {}/{} found."
+                    .format(self.subcollection, key)
+                )
+                document.update(to_cache)
+            else:
+                logging.info(
+                    "Adding new key {}/{}".format(self.subcollection, key))
+                document.set(to_cache)
+        except InvalidArgument:
+            logging.warn(
+                "Value Not Upserted for {}/{}".format(self.subcollection, key)
             )
-            document.update(val)
-        else:
-            logging.info(
-                "Adding new key {}/{}".format(self.subcollection, key))
-            document.set(val)
-
-
-def firestore_cache_wrapper(subcollection, max_lapsed_days=180):
-
-    CACHE = FirestoreCacher(
-        subcollection,
-        max_lapsed_days=max_lapsed_days
-    )
-
-    def cachewrapped_function(function):
-
-        @functools.wraps(function)
-        def _cachewrapped_function(*args, **kwargs):
-
-            key = CACHE.hash_inputs_to_key(*args, **kwargs)
-            from_cache = CACHE.get_val_by_key(key)
-            if from_cache is not None:
-                return from_cache["output"]
-
-            to_cache = {
-                "args": list(args),
-                "kwargs": kwargs,
-                "output": function(*args, **kwargs)
-            }
-
-            CACHE.upsert_val_for_key(key, to_cache)
-            return to_cache["output"]
-        return _cachewrapped_function
-
-    return cachewrapped_function

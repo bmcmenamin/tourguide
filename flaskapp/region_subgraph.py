@@ -94,7 +94,7 @@ class RegionSubGraph(abc.ABC):
 
         if outbound:
             new_edges = [
-                (ed['from'], ed['to'])
+                (ed['x0'], ed['x1'])
                 for ed in self.outbound_link_finder.get_payload(nodes_to_visit)
             ]
             self.graph.add_edges_from(new_edges)
@@ -102,7 +102,7 @@ class RegionSubGraph(abc.ABC):
 
         if inbound:
             new_edges = [
-                (ed['from'], ed['to'])
+                (ed['x1'], ed['x0'])
                 for ed in self.inbound_link_finder.get_payload(nodes_to_visit)
             ]
             self.graph.add_edges_from(new_edges)

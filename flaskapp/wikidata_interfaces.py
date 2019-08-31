@@ -7,11 +7,17 @@ import logging
 
 import requests
 
-from firestore_cacher import firestore_cache_wrapper
+from firestore_cacher import FirestoreCacher
 
 API_ENDPOINT = "https://en.wikipedia.org/w/api.php"
 
 logging.basicConfig(level=logging.INFO)
+
+
+FS_CACHES = {
+    cn: FirestoreCacher(cn)
+    for cn in ['links', 'linkshere', 'geosearch', 'categories', 'coordinates']
+}
 
 
 class BaseRequester(abc.ABC):
@@ -36,8 +42,8 @@ class BaseRequester(abc.ABC):
 
         links = [
             {
-                "from": pageid_data['title'].replace(" ", "_"),
-                "to": l['title'].replace(" ", "_")
+                "x0": pageid_data['title'].replace(" ", "_"),
+                "x1": l['title'].replace(" ", "_")
             }
             for pageid_data in pages.values()
             for l in pageid_data.get(self._PROP_TYPE, [])
@@ -53,29 +59,17 @@ class BaseRequester(abc.ABC):
 
     def _get_api_responses(self, params):
 
-        @firestore_cache_wrapper("_get_api_responses")
-        def _fetch(params):
-            resp = self.session.get(
-                url=API_ENDPOINT,
-                params=params
-            )
-            link_list, continue_str = self._parse_response(resp)
+        resp = self.session.get(url=API_ENDPOINT, params=params)
+        link_list, continue_str = self._parse_response(resp)
 
-            while continue_str:
+        while continue_str:
+            logging.info("Continuing queries on %s", type(self).__name__)
+            params[self._CONTINUE_FIELD] = continue_str
+            resp = self.session.get(url=API_ENDPOINT, params=params)
+            _links, continue_str = self._parse_response(resp)
+            link_list += _links
 
-                logging.info("Continuing queries on %s", type(self).__name__)
-
-                params[self._CONTINUE_FIELD] = continue_str
-                resp = self.session.get(
-                    url=API_ENDPOINT,
-                    params=params
-                )
-                _links, continue_str = self._parse_response(resp)
-                link_list += _links
-
-            return link_list
-
-        return _fetch(params)
+        return link_list
 
     def get_payload(self, page_titles):
 
@@ -88,9 +82,17 @@ class BaseRequester(abc.ABC):
 
         results = []
         for page_title in page_titles:
+
             params["titles"] = page_title
             params.pop(self._CONTINUE_FIELD, None)
-            result = self._get_api_responses(params)
+
+            cache_key = FS_CACHES[self._PROP_TYPE].hash_inputs_to_key(params)
+            result = FS_CACHES[self._PROP_TYPE].get_val_by_key(cache_key)
+
+            if result is None:
+                result = self._get_api_responses(params)
+                FS_CACHES[self._PROP_TYPE].upsert_val_for_key(cache_key, result)
+
             results.extend(result)
 
         return results
@@ -167,19 +169,27 @@ class NearbyFinder(BaseRequester):
         params["gscoord"] = "{}|{}".format(lat, lon)
         params["gslimit"] = num_nearby
 
+        cache_key = FS_CACHES[self._PROP_TYPE].hash_inputs_to_key(params)
+        result = FS_CACHES[self._PROP_TYPE].get_val_by_key(cache_key)
+
+        if result is None:
+            result = self._get_api_responses(params)
+            FS_CACHES[self._PROP_TYPE].upsert_val_for_key(cache_key, result)
+
         logging.info(
             "Getting payload query %s for latlon (%s, %s)",
             type(self).__name__,
             lat, lon
         )
 
-        return self._get_api_responses(params)
+        return result
 
 
 class CategoryFinder(BaseRequester):
 
     _PROP_TYPE = "categories"
     _CONTINUE_FIELD = "clcontinue"
+
     INIT_PARAMS = {
         "action": "query",
         "format": "json",
@@ -211,8 +221,8 @@ class CoordinateFinder(BaseRequester):
 
         links = [
             {
-                "from": pageid_data['title'].replace(" ", "_"),
-                "to": l.get('dist', -1)
+                "x0": pageid_data['title'].replace(" ", "_"),
+                "x1": l.get('dist', -1)
             }
             for pageid_data in pages.values()
             for l in pageid_data.get(self._PROP_TYPE, [])
@@ -234,11 +244,18 @@ class CoordinateFinder(BaseRequester):
             params["titles"] = page_title
             params.pop(self._CONTINUE_FIELD, None)
 
-            logging.info(
-                "Getting payload on query %s for titles %s relative to %s",
-                type(self).__name__, page_title, latlon
-            )
+            cache_key = FS_CACHES[self._PROP_TYPE].hash_inputs_to_key(params)
+            result = FS_CACHES[self._PROP_TYPE].get_val_by_key(cache_key)
 
-            resp = self._get_api_responses(params)
-            results.extend(resp)
+            if result is None:
+                logging.info(
+                    "Getting payload on query %s for titles %s relative to %s",
+                    type(self).__name__, page_title, latlon
+                )
+                result = self._get_api_responses(params)
+
+                FS_CACHES[self._PROP_TYPE].upsert_val_for_key(cache_key, result)
+
+            results.extend(result)
+
         return results

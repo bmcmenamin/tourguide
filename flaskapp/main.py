@@ -8,7 +8,6 @@ from flask import (
     Flask, Response, request, session, jsonify, render_template, make_response
 )
 
-
 import article_network
 
 
