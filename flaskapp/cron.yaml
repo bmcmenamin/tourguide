@@ -1,5 +1,4 @@
 cron:
 - description: "Cache top Wikipedia pages"
-  schedule: every wednesday 03:00
   url: /update-cache
-  service: update-cache
+  schedule: every wednesday 03:00
