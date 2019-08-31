@@ -5,8 +5,8 @@
 import requests
 import wikidata_interfaces as wi
 
-BATCH_SIZE = 100
-MAX_PAGES = 10000
+BATCH_SIZE = 250
+MAX_PAGES = 1000000
 
 
 def yield_page_titles(max_pages, batch_size=BATCH_SIZE):
@@ -18,22 +18,27 @@ def yield_page_titles(max_pages, batch_size=BATCH_SIZE):
         "pvimlimit": str(batch_size)
     }
 
+
     for offset in range(0, max_pages, batch_size):
         params["pvimoffset"] = str(offset)
 
-        pages = (
-            requests
-            .Session()
-            .get(
-                url=wi.API_ENDPOINT,
-                params=params
+        try:
+            pages = (
+                requests
+                .Session()
+                .get(
+                    url=wi.API_ENDPOINT,
+                    params=params
+                )
+                .json()
+                .get("query", {})
+                .get("mostviewed", {})
             )
-            .json()
-            .get("query", {})
-            .get("mostviewed", {})
-        )
 
-        yield [p['title'] for p in pages]
+            yield [p['title'] for p in pages]
+
+        except:
+            pass
 
 
 def main(max_pages):

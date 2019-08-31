@@ -1,0 +1,9 @@
+runtime: python37
+
+service: update-cache
+
+instance_class: F1
+
+handlers:
+- url: /update-cache
+  script: auto
