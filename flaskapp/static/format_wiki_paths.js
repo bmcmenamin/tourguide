@@ -6,6 +6,7 @@ var seedsByTopic = []
 var seedsByNearby = []
 var path_status = 'unknown'
 
+
 function wikititle_to_html(title) {
     url = WIKI_URL + title.split(" ").join("_")
     return "<a href=" + url + " target=\"_blank\">" + title.split("_").join(" ") + "<a>";

@@ -30,14 +30,17 @@ def clear_session():
 @app.route('/setLocation', methods=['POST'])
 def set_location():
     user_input = request.get_json()
+
     session['latlon'] = (
         round(user_input['latitude'], 4),
         round(user_input['longitude'], 4)
     )
+
     app.logger.info(
         'Data received at endpoint /setLocation: %s',
         session['latlon']
     )
+
     return make_response(jsonify(session['latlon']), 200)
 
 

@@ -8,7 +8,7 @@ $( document ).ready(function() {
         var formData = $( ".form-control" ).
             val().
             split(";").
-            map( x => x.trim().replace(" ", "_") ).
+            map( x => x.trim().split(" ").join("_") ).
             filter( x => x.length > 1);
         return formData;
     }
@@ -56,7 +56,7 @@ $( document ).ready(function() {
 
     function setLocation() {
 
-        var good_func = function (location) {
+        var good_func = function(location) {
             $.ajax({
                 url: "/setLocation",
                 type: "POST",
@@ -158,9 +158,9 @@ $( document ).ready(function() {
             var promises = clearSession().then(
                 setTopics(readTopicForm())
             ).then(
-                setLocation
+                setLocation()
             ).then(
-                runQuery
+                runQuery()
             );
 
         }
