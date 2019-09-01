@@ -6,5 +6,8 @@ service: update-cache
 instance_class: F1
 
 handlers:
-- url: /update-cache
+- url: /update-popular
+  script: auto
+
+- url: /update-random
   script: auto

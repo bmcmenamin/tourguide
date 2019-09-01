@@ -55,6 +55,9 @@ class BaseRequester(abc.ABC):
     def _get_api_responses(self, params):
 
         resp = self.session.get(url=API_ENDPOINT, params=params)
+        print(API_ENDPOINT)
+        print(params)
+        print(resp.json())
         link_list, continue_str = self._parse_response(resp)
 
         while continue_str:
@@ -258,7 +261,7 @@ class CoordinateFinder(BaseRequester):
 
 class MostViewedFinder(BaseRequester):
 
-    _PROP_TYPE = "coordinates"
+    _PROP_TYPE = "title"
     _CONTINUE_FIELD = "batchcomplete"
     INIT_PARAMS = {
         "action": "query",
@@ -287,6 +290,41 @@ class MostViewedFinder(BaseRequester):
         params = self.INIT_PARAMS.copy()
         params["pvimlimit"] = str(batch_size)
         params["pvimoffset"] = str(offset)
+        params.pop(self._CONTINUE_FIELD, None)
+        results = self._get_api_responses(params)
+
+        return results
+
+
+class RandomPageFinder(BaseRequester):
+
+    _PROP_TYPE = "title"
+    _CONTINUE_FIELD = None
+    INIT_PARAMS = {
+        "action": "query",
+        "format": "json",
+        "list": "random",
+        "rnnamespace": "0",
+    }
+
+    def _parse_response(self, resp):
+
+        resp_dict = resp.json()
+        pages = [
+            page.get(self._PROP_TYPE)
+            for page in (
+                resp_dict.
+                get("query", {}).
+                get("random", [])
+            )
+        ]
+        continue_str = None
+
+        return pages, continue_str
+
+    def get_payload(self, batch_size):
+        params = self.INIT_PARAMS.copy()
+        params["rnlimit"] = str(batch_size)
         params.pop(self._CONTINUE_FIELD, None)
         results = self._get_api_responses(params)
 

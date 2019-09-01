@@ -15,7 +15,7 @@ BATCH_SIZE = 200
 MAX_PAGES = 10000
 
 
-@app.route('/update-cache', methods=['GET'])
+@app.route('/update-popular', methods=['GET'])
 def run_update(batch_size=BATCH_SIZE):
 
     for offset in range(0, MAX_PAGES, batch_size):
@@ -25,6 +25,17 @@ def run_update(batch_size=BATCH_SIZE):
         wi.CategoryFinder().get_payload(page_titles)
 
     return make_response(jsonify(page_titles), 200)
+
+
+@app.route('/update-random', methods=['GET'])
+def run_update(batch_size=BATCH_SIZE):
+    page_titles = wi.RandomPageFinder().get_payload(batch_size)
+    wi.OutLinkFinder().get_payload(page_titles)
+    wi.InLinkFinder().get_payload(page_titles)
+    wi.CategoryFinder().get_payload(page_titles)
+
+    return make_response(jsonify(page_titles), 200)
+
 
 
 if __name__ == '__main__':
