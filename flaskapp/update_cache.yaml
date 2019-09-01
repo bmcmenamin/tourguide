@@ -1,5 +1,5 @@
 runtime: python37
-entrypoint: gunicorn -b :$PORT update_cache:app
+entrypoint: gunicorn -b :24601 update_cache:app --timeout=300
 
 service: update-cache
 
