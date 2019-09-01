@@ -16,7 +16,6 @@ app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.secret_key = "OHnM3KAkTEhsI&j6"
 
 
-DEBUG = False
 NUM_NEARBY = 15
 
 
@@ -95,5 +94,5 @@ if __name__ == '__main__':
     app.run(
         host='127.0.0.1',
         port=8080,
-        debug=DEBUG
+        debug=True
     )

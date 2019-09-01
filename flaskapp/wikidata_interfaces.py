@@ -33,12 +33,7 @@ class BaseRequester(abc.ABC):
 
     def _parse_response(self, resp):
         resp_dict = resp.json()
-
-        pages = (
-            resp_dict.
-            get("query", {}).
-            get("pages", {})
-        )
+        pages = resp_dict.get("query", {}).get("pages", {})
 
         links = [
             {
@@ -257,5 +252,42 @@ class CoordinateFinder(BaseRequester):
                 FS_CACHES[self._PROP_TYPE].upsert_val_for_key(cache_key, result)
 
             results.extend(result)
+
+        return results
+
+
+class MostViewedFinder(BaseRequester):
+
+    _PROP_TYPE = "coordinates"
+    _CONTINUE_FIELD = "batchcomplete"
+    INIT_PARAMS = {
+        "action": "query",
+        "format": "json",
+        "list": "mostviewed",
+    }
+
+    def _parse_response(self, resp):
+
+        resp_dict = resp.json()
+        pages = (
+            resp_dict.
+            get("query", {}).
+            get("mostviewed", [])
+        )
+
+        continue_str = (
+            resp_dict.
+            get('continue', {}).
+            get(self._CONTINUE_FIELD)
+        )
+
+        return pages, continue_str
+
+    def get_payload(self, batch_size, offset):
+        params = self.INIT_PARAMS.copy()
+        params["pvimlimit"] = str(batch_size)
+        params["pvimoffset"] = str(offset)
+        params.pop(self._CONTINUE_FIELD, None)
+        results = self._get_api_responses(params)
 
         return results

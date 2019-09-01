@@ -1,4 +1,5 @@
 runtime: python37
+entrypoint: gunicorn -b :$PORT update_cache:app
 
 service: update-cache
 
