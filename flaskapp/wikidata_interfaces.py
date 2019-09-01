@@ -5,13 +5,19 @@
 import abc
 import logging
 
-import funcy
 import requests
 
+from firestore_cacher import FirestoreCacher
 
 API_ENDPOINT = "https://en.wikipedia.org/w/api.php"
 
 logging.basicConfig(level=logging.INFO)
+
+
+FS_CACHES = {
+    cn: FirestoreCacher(cn)
+    for cn in ['links', 'linkshere', 'geosearch', 'categories', 'coordinates']
+}
 
 
 class BaseRequester(abc.ABC):
@@ -26,20 +32,14 @@ class BaseRequester(abc.ABC):
         self.session = requests.Session()
 
     def _parse_response(self, resp):
-
         resp_dict = resp.json()
-
-        pages = (
-            resp_dict.
-            get("query", {}).
-            get("pages", {})
-        )
+        pages = resp_dict.get("query", {}).get("pages", {})
 
         links = [
-            (
-                pageid_data['title'].replace(" ", "_"),
-                l['title'].replace(" ", "_")
-            )
+            {
+                "x0": pageid_data['title'].replace(" ", "_"),
+                "x1": l['title'].replace(" ", "_")
+            }
             for pageid_data in pages.values()
             for l in pageid_data.get(self._PROP_TYPE, [])
         ]
@@ -52,20 +52,18 @@ class BaseRequester(abc.ABC):
 
         return links, continue_str
 
-    def _get_all_responses(self, params):
+    def _get_api_responses(self, params):
 
         resp = self.session.get(url=API_ENDPOINT, params=params)
+        print(API_ENDPOINT)
+        print(params)
+        print(resp.json())
         link_list, continue_str = self._parse_response(resp)
 
         while continue_str:
-
             logging.info("Continuing queries on %s", type(self).__name__)
-
             params[self._CONTINUE_FIELD] = continue_str
-            resp = self.session.get(
-                url=API_ENDPOINT,
-                params=params
-            )
+            resp = self.session.get(url=API_ENDPOINT, params=params)
             _links, continue_str = self._parse_response(resp)
             link_list += _links
 
@@ -75,20 +73,25 @@ class BaseRequester(abc.ABC):
 
         params = self.INIT_PARAMS.copy()
 
+        page_titles = (
+            str(p).replace(" ", "_")
+            for p in page_titles
+        )
+
         results = []
-        for chunk in funcy.chunks(min(self._BATCH_SIZE, 5), page_titles):
-            chunk = [str(c).replace(" ", "_") for c in chunk]
-            params["titles"] = '|'.join(chunk)
+        for page_title in page_titles:
+
+            params["titles"] = page_title
             params.pop(self._CONTINUE_FIELD, None)
 
-            logging.info(
-                "Getting payload on query %s for titles %s",
-                type(self).__name__,
-                chunk
-            )
+            cache_key = FS_CACHES[self._PROP_TYPE].hash_inputs_to_key(params)
+            result = FS_CACHES[self._PROP_TYPE].get_val_by_key(cache_key)
 
-            resp = self._get_all_responses(params)
-            results.extend(resp)
+            if result is None:
+                result = self._get_api_responses(params)
+                FS_CACHES[self._PROP_TYPE].upsert_val_for_key(cache_key, result)
+
+            results.extend(result)
 
         return results
 
@@ -164,19 +167,27 @@ class NearbyFinder(BaseRequester):
         params["gscoord"] = "{}|{}".format(lat, lon)
         params["gslimit"] = num_nearby
 
+        cache_key = FS_CACHES[self._PROP_TYPE].hash_inputs_to_key(params)
+        result = FS_CACHES[self._PROP_TYPE].get_val_by_key(cache_key)
+
+        if result is None:
+            result = self._get_api_responses(params)
+            FS_CACHES[self._PROP_TYPE].upsert_val_for_key(cache_key, result)
+
         logging.info(
             "Getting payload query %s for latlon (%s, %s)",
             type(self).__name__,
             lat, lon
         )
 
-        return self._get_all_responses(params)
+        return result
 
 
 class CategoryFinder(BaseRequester):
 
     _PROP_TYPE = "categories"
     _CONTINUE_FIELD = "clcontinue"
+
     INIT_PARAMS = {
         "action": "query",
         "format": "json",
@@ -207,10 +218,10 @@ class CoordinateFinder(BaseRequester):
         )
 
         links = [
-            (
-                pageid_data['title'].replace(" ", "_"),
-                l.get('dist', -1)
-            )
+            {
+                "x0": pageid_data['title'].replace(" ", "_"),
+                "x1": l.get('dist', -1)
+            }
             for pageid_data in pages.values()
             for l in pageid_data.get(self._PROP_TYPE, [])
         ]
@@ -227,16 +238,94 @@ class CoordinateFinder(BaseRequester):
         params = self.INIT_PARAMS.copy()
         params["codistancefrompoint"] = "{}|{}".format(*latlon)
         results = []
-        for chunk in funcy.chunks(min(self._BATCH_SIZE, 50), page_titles):
-            chunk = [str(c).replace(" ", "_") for c in chunk]
+        for page_title in page_titles:
+            params["titles"] = page_title
             params.pop(self._CONTINUE_FIELD, None)
-            params["titles"] = '|'.join(chunk)
 
-            logging.info(
-                "Getting payload on query %s for titles %s relative to %s",
-                type(self).__name__, chunk, latlon
+            cache_key = FS_CACHES[self._PROP_TYPE].hash_inputs_to_key(params)
+            result = FS_CACHES[self._PROP_TYPE].get_val_by_key(cache_key)
+
+            if result is None:
+                logging.info(
+                    "Getting payload on query %s for titles %s relative to %s",
+                    type(self).__name__, page_title, latlon
+                )
+                result = self._get_api_responses(params)
+
+                FS_CACHES[self._PROP_TYPE].upsert_val_for_key(cache_key, result)
+
+            results.extend(result)
+
+        return results
+
+
+class MostViewedFinder(BaseRequester):
+
+    _PROP_TYPE = "title"
+    _CONTINUE_FIELD = "batchcomplete"
+    INIT_PARAMS = {
+        "action": "query",
+        "format": "json",
+        "list": "mostviewed",
+    }
+
+    def _parse_response(self, resp):
+
+        resp_dict = resp.json()
+        pages = (
+            resp_dict.
+            get("query", {}).
+            get("mostviewed", [])
+        )
+
+        continue_str = (
+            resp_dict.
+            get('continue', {}).
+            get(self._CONTINUE_FIELD)
+        )
+
+        return pages, continue_str
+
+    def get_payload(self, batch_size, offset):
+        params = self.INIT_PARAMS.copy()
+        params["pvimlimit"] = str(batch_size)
+        params["pvimoffset"] = str(offset)
+        params.pop(self._CONTINUE_FIELD, None)
+        results = self._get_api_responses(params)
+
+        return results
+
+
+class RandomPageFinder(BaseRequester):
+
+    _PROP_TYPE = "title"
+    _CONTINUE_FIELD = None
+    INIT_PARAMS = {
+        "action": "query",
+        "format": "json",
+        "list": "random",
+        "rnnamespace": "0",
+    }
+
+    def _parse_response(self, resp):
+
+        resp_dict = resp.json()
+        pages = [
+            page.get(self._PROP_TYPE)
+            for page in (
+                resp_dict.
+                get("query", {}).
+                get("random", [])
             )
+        ]
+        continue_str = None
 
-            resp = self._get_all_responses(params)
-            results.extend(resp)
+        return pages, continue_str
+
+    def get_payload(self, batch_size):
+        params = self.INIT_PARAMS.copy()
+        params["rnlimit"] = str(batch_size)
+        params.pop(self._CONTINUE_FIELD, None)
+        results = self._get_api_responses(params)
+
         return results
