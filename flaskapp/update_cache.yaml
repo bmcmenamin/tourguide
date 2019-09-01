@@ -3,7 +3,7 @@ entrypoint: gunicorn -b :24601 update_cache:app --timeout=300
 
 service: update-cache
 
-instance_class: F1
+instance_class: F2
 
 handlers:
 - url: /update-popular

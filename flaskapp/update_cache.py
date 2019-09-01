@@ -11,7 +11,7 @@ app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.secret_key = "OHnM3KAkTEhsI&j6"
 
 
-BATCH_SIZE = 100
+BATCH_SIZE = 10
 MAX_PAGES = 10000
 
 
@@ -22,12 +22,9 @@ def _run_throuh_cacherfuncs(page_titles):
 
 
 @app.route('/update-popular', methods=['GET'])
-def run_update_popular(batch_size=BATCH_SIZE):
-
-    for offset in range(0, MAX_PAGES, batch_size):
-        page_titles = wi.MostViewedFinder().get_payload(batch_size, offset)
-        _run_throuh_cacherfuncs(page_titles)
-
+def run_update_popular(offset=0, batch_size=BATCH_SIZE):
+    page_titles = wi.MostViewedFinder().get_payload(batch_size, offset)
+    _run_throuh_cacherfuncs(page_titles)
     return make_response(jsonify(page_titles), 200)
 
 
@@ -35,7 +32,6 @@ def run_update_popular(batch_size=BATCH_SIZE):
 def run_update_random(batch_size=BATCH_SIZE):
     page_titles = wi.RandomPageFinder().get_payload(batch_size)
     _run_throuh_cacherfuncs(page_titles)
-
     return make_response(jsonify(page_titles), 200)
 
 
