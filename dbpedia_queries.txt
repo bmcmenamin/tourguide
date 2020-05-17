@@ -1,0 +1,27 @@
+http://dbpedia.org/snorql/
+
+
+
+SELECT DISTINCT $seed $pid WHERE {
+  ?seed a dbo:Place ;
+  geo:lat ?lat ;
+  geo:long ?long ;
+  dbo:wikiPageID ?pid .
+
+  BIND(ABS(?lat - 44.8113) + ABS(?long - -91.4985) AS ?l1_dist)
+  FILTER(?l1_dist < 0.2)
+}
+ORDER BY ?l1_dist
+LIMIT 25
+
+
+
+SELECT DISTINCT ?seed ?s ?t ?targ WHERE {
+
+    ?seed a dbo:Place ; dbo:wikiPageID 151296 .
+    ?targ a owl:Thing ; dbo:wikiPageID 23549 .
+
+    ?mid_s  ((<>|!<>)|^(<>|!<>)){, 2} ?seed ; a owl:Thing ;
+    ?linker ?mid_t .
+    ?mid_t  ((<>|!<>)|^(<>|!<>)) ?targ ; a owl:Thing .
+}
