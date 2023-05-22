@@ -3,5 +3,5 @@ funcy==1.12
 google-cloud-firestore==1.4.0
 gunicorn==19.9.0
 networkx==2.3
-requests==2.21.0
+requests==2.31.0
 requests-oauthlib==1.2.0
