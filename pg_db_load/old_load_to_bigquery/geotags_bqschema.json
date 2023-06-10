@@ -1,0 +1,18 @@
+[
+  {
+    "name": "page_id",
+    "type": "INT64"
+  },
+  {
+    "name": "dim",
+    "type": "INT64"
+  },
+  {
+    "name": "lat",
+    "type": "FLOAT"
+  },
+  {
+    "name": "lon",
+    "type": "FLOAT"
+  }
+]
