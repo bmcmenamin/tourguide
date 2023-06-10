@@ -19,4 +19,4 @@ This is set up to run using Google App Engine, and there is an instance running 
 
 To run a search, provide a semicolon-delimited list of wikipedia page titles and then click the search icon. Wait. Then browse the list of wikipages to find fun things.
 
-It'd be nice if you'd see updates while it's searching, but I'm done play8ing with JavaScript.
+It'd be nice if you'd see updates while it's searching, but I'm done playing with JavaScript.

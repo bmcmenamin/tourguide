@@ -21,7 +21,7 @@ FS_CACHES = {
 
 
 class BaseRequester(abc.ABC):
-    """Base class for findling links to/from a page"""
+    """Base class for finding links to/from a page"""
 
     INIT_PARAMS = None
     _PROP_TYPE = None
@@ -55,9 +55,6 @@ class BaseRequester(abc.ABC):
     def _get_api_responses(self, params):
 
         resp = self.session.get(url=API_ENDPOINT, params=params)
-        print(API_ENDPOINT)
-        print(params)
-        print(resp.json())
         link_list, continue_str = self._parse_response(resp)
 
         while continue_str:
@@ -94,6 +91,18 @@ class BaseRequester(abc.ABC):
             results.extend(result)
 
         return results
+
+
+class FulltextFinder(BaseRequester):
+    _PROP_TYPE = "revisions"
+    _CONTINUE_FIELD = "rvcontinue"
+    INIT_PARAMS = {
+        "action": "query",
+        "format": "json",
+        "rvprop": "content",
+        "redirects": 1,
+        "continue": "||"
+    }
 
 
 class OutLinkFinder(BaseRequester):

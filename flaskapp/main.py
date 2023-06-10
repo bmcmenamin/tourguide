@@ -1,8 +1,6 @@
 """
     List nearby places
 """
-import collections
-import uuid
 
 from flask import (
     Flask, Response, request, session, jsonify, render_template, make_response
