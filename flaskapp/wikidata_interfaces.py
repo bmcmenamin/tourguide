@@ -7,17 +7,10 @@ import logging
 
 import requests
 
-from firestore_cacher import FirestoreCacher
 
 API_ENDPOINT = "https://en.wikipedia.org/w/api.php"
 
 logging.basicConfig(level=logging.INFO)
-
-
-FS_CACHES = {
-    cn: FirestoreCacher(cn)
-    for cn in ['links', 'linkshere', 'geosearch', 'categories', 'coordinates']
-}
 
 
 class BaseRequester(abc.ABC):
@@ -34,14 +27,13 @@ class BaseRequester(abc.ABC):
     def _parse_response(self, resp):
         resp_dict = resp.json()
         pages = resp_dict.get("query", {}).get("pages", {})
-
         links = [
             {
                 "x0": pageid_data['title'].replace(" ", "_"),
-                "x1": l['title'].replace(" ", "_")
+                "x1": el['title'].replace(" ", "_")
             }
             for pageid_data in pages.values()
-            for l in pageid_data.get(self._PROP_TYPE, [])
+            for el in pageid_data.get(self._PROP_TYPE, [])
         ]
 
         continue_str = (
@@ -80,14 +72,7 @@ class BaseRequester(abc.ABC):
 
             params["titles"] = page_title
             params.pop(self._CONTINUE_FIELD, None)
-
-            cache_key = FS_CACHES[self._PROP_TYPE].hash_inputs_to_key(params)
-            result = FS_CACHES[self._PROP_TYPE].get_val_by_key(cache_key)
-
-            if result is None:
-                result = self._get_api_responses(params)
-                FS_CACHES[self._PROP_TYPE].upsert_val_for_key(cache_key, result)
-
+            result = self._get_api_responses(params)
             results.extend(result)
 
         return results
@@ -105,62 +90,22 @@ class FulltextFinder(BaseRequester):
     }
 
 
-class OutLinkFinder(BaseRequester):
-
-    _PROP_TYPE = "links"
-    _CONTINUE_FIELD = "plcontinue"
+class PageidFinder(BaseRequester):
+    _PROP_TYPE = "info"
+    _CONTINUE_FIELD = "incontinue"
     INIT_PARAMS = {
         "action": "query",
         "format": "json",
-        "prop": "links",
         "redirects": 1,
-        "plnamespace": 0,
-        "pllimit": "max",
         "continue": "||"
     }
 
-
-class InLinkFinder(BaseRequester):
-
-    _PROP_TYPE = "linkshere"
-    _CONTINUE_FIELD = "lhcontinue"
-    INIT_PARAMS = {
-        "action": "query",
-        "format": "json",
-        "prop": "linkshere",
-        "redirects": 1,
-        "lhprop": "title",
-        "lhnamespace": 0,
-        "lhlimit": "max",
-    }
-
-
-class NearbyFinder(BaseRequester):
-
-    _PROP_TYPE = "geosearch"
-    INIT_PARAMS = {
-        "action": "query",
-        "format": "json",
-        "list": "geosearch",
-        "gsradius": 10000,
-        "gsnamespace": 0,
-        "gsprop": "name",
-        "gsprimary": "primary"
-    }
-
     def _parse_response(self, resp):
-
         resp_dict = resp.json()
-
-        places = (
-            resp_dict.
-            get("query", {}).
-            get(self._PROP_TYPE, [])
-        )
-
+        pages = resp_dict.get("query", {}).get("pages", {})
         links = [
-            place['title'].replace(" ", "_")
-            for place in places
+            (pageid_data['title'], int(pageid))
+            for pageid, pageid_data in pages.items()
         ]
 
         continue_str = (
@@ -170,171 +115,3 @@ class NearbyFinder(BaseRequester):
         )
 
         return links, continue_str
-
-    def get_payload(self, lat, lon, num_nearby=10):
-        params = self.INIT_PARAMS.copy()
-        params["gscoord"] = "{}|{}".format(lat, lon)
-        params["gslimit"] = num_nearby
-
-        cache_key = FS_CACHES[self._PROP_TYPE].hash_inputs_to_key(params)
-        result = FS_CACHES[self._PROP_TYPE].get_val_by_key(cache_key)
-
-        if result is None:
-            result = self._get_api_responses(params)
-            FS_CACHES[self._PROP_TYPE].upsert_val_for_key(cache_key, result)
-
-        logging.info(
-            "Getting payload query %s for latlon (%s, %s)",
-            type(self).__name__,
-            lat, lon
-        )
-
-        return result
-
-
-class CategoryFinder(BaseRequester):
-
-    _PROP_TYPE = "categories"
-    _CONTINUE_FIELD = "clcontinue"
-
-    INIT_PARAMS = {
-        "action": "query",
-        "format": "json",
-        "prop": "categories",
-        "cllimit": "max",
-        "clshow": "!hidden"
-    }
-
-
-class CoordinateFinder(BaseRequester):
-
-    _PROP_TYPE = "coordinates"
-    _CONTINUE_FIELD = "cocontinue"
-    INIT_PARAMS = {
-        "action": "query",
-        "format": "json",
-        "prop": "coordinates",
-        "colimit": "max"
-    }
-
-    def _parse_response(self, resp):
-
-        resp_dict = resp.json()
-        pages = (
-            resp_dict.
-            get("query", {}).
-            get("pages", {})
-        )
-
-        links = [
-            {
-                "x0": pageid_data['title'].replace(" ", "_"),
-                "x1": l.get('dist', -1)
-            }
-            for pageid_data in pages.values()
-            for l in pageid_data.get(self._PROP_TYPE, [])
-        ]
-
-        continue_str = (
-            resp_dict.
-            get('continue', {}).
-            get(self._CONTINUE_FIELD)
-        )
-
-        return links, continue_str
-
-    def get_payload(self, page_titles, latlon):
-        params = self.INIT_PARAMS.copy()
-        params["codistancefrompoint"] = "{}|{}".format(*latlon)
-        results = []
-        for page_title in page_titles:
-            params["titles"] = page_title
-            params.pop(self._CONTINUE_FIELD, None)
-
-            cache_key = FS_CACHES[self._PROP_TYPE].hash_inputs_to_key(params)
-            result = FS_CACHES[self._PROP_TYPE].get_val_by_key(cache_key)
-
-            if result is None:
-                logging.info(
-                    "Getting payload on query %s for titles %s relative to %s",
-                    type(self).__name__, page_title, latlon
-                )
-                result = self._get_api_responses(params)
-
-                FS_CACHES[self._PROP_TYPE].upsert_val_for_key(cache_key, result)
-
-            results.extend(result)
-
-        return results
-
-
-class MostViewedFinder(BaseRequester):
-
-    _PROP_TYPE = "title"
-    _CONTINUE_FIELD = "batchcomplete"
-    INIT_PARAMS = {
-        "action": "query",
-        "format": "json",
-        "list": "mostviewed",
-    }
-
-    def _parse_response(self, resp):
-
-        resp_dict = resp.json()
-        pages = (
-            resp_dict.
-            get("query", {}).
-            get("mostviewed", [])
-        )
-
-        continue_str = (
-            resp_dict.
-            get('continue', {}).
-            get(self._CONTINUE_FIELD)
-        )
-
-        return pages, continue_str
-
-    def get_payload(self, batch_size, offset):
-        params = self.INIT_PARAMS.copy()
-        params["pvimlimit"] = str(batch_size)
-        params["pvimoffset"] = str(offset)
-        params.pop(self._CONTINUE_FIELD, None)
-        results = self._get_api_responses(params)
-
-        return results
-
-
-class RandomPageFinder(BaseRequester):
-
-    _PROP_TYPE = "title"
-    _CONTINUE_FIELD = None
-    INIT_PARAMS = {
-        "action": "query",
-        "format": "json",
-        "list": "random",
-        "rnnamespace": "0",
-    }
-
-    def _parse_response(self, resp):
-
-        resp_dict = resp.json()
-        pages = [
-            page.get(self._PROP_TYPE)
-            for page in (
-                resp_dict.
-                get("query", {}).
-                get("random", [])
-            )
-        ]
-        continue_str = None
-
-        return pages, continue_str
-
-    def get_payload(self, batch_size):
-        params = self.INIT_PARAMS.copy()
-        params["rnlimit"] = str(batch_size)
-        params.pop(self._CONTINUE_FIELD, None)
-        results = self._get_api_responses(params)
-
-        return results

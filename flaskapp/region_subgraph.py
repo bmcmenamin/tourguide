@@ -20,16 +20,12 @@ class RegionSubGraph(abc.ABC):
     """
 
     def __str__(self):
-        output = "Region of {num_neighbors} nodes surrounding\n\t{seeds}"
 
         print_nodes = [str(i) for i in sorted(self.seed_nodes)[:20]]
         if len(self.seed_nodes) > 20:
             print_nodes.append("...")
 
-        return output.format(
-            num_neighbors=len(self.graph),
-            seeds="\n\t".join(print_nodes)
-        )
+        return f"Region of {len(self.graph)} nodes surrounding\n\t{"\n\t".join(print_nodes)}"
 
     def __init__(self):
         self.seed_nodes = set()
@@ -41,46 +37,16 @@ class RegionSubGraph(abc.ABC):
         self.inbound_link_finder = wikidata_interfaces.InLinkFinder()
         self.outbound_link_finder = wikidata_interfaces.OutLinkFinder()
 
-    def add_seeds(self, nodes):
-        nodes = {
-            n.replace(" ", "_")
-            for n in nodes
-        }
+    def add_seeds(self, nodes: List[int]):
+        nodes = {n for n in nodes}
         self.seed_nodes.update(nodes)
         self.graph.add_nodes_from(nodes)
         return self
 
-    def filter_nodes_by_blacklist(self):
-
-        bl_nodes = {
-            n
-            for n in self.graph.nodes
-            if n in special_nodes.NODE_BLACKLIST
-        }
-
-        list_nodes = {
-            n
-            for n in self.graph.nodes
-            if n.startswith('List_')
-        }
-
-        nonchar_nodes = {
-            n
-            for n in self.graph.nodes
-            if not any(c in n for c in string.ascii_letters)
-        }
-
-        bad_nodes = set.union(
-            bl_nodes,
-            list_nodes,
-            nonchar_nodes
-        )
-
-        self.graph.remove_nodes_from(bad_nodes - self.seed_nodes)
-
     def dilate(self, inbound=True, outbound=True):
 
         orig_nodes = set(self.graph.nodes)
+
         nodes_to_visit = set()
         if inbound and outbound:
             fully_visited_nodes = self.visited_nodes_ib.intersection(
@@ -114,8 +80,7 @@ class RegionSubGraph(abc.ABC):
 
 class RegionSubGraphByName(RegionSubGraph):
     """
-        Biuld a subgraph around a set of seed nodes but also
-        include the ability for filtering out nodes by distance
+        Build a subgraph around a set of seed nodes
     """
 
     def __init__(self, seed_nodes):

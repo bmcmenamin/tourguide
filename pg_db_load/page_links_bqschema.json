@@ -1,0 +1,32 @@
+[
+  {
+    "name": "page_id",
+    "type": "INT64"
+  },
+  {
+    "name": "title",
+    "type": "STRING"
+  },
+  {
+    "name": "has_place_category",
+    "type": "BOOL"
+  },
+  {
+    "name": "in_links",
+    "type": "INT64",
+    "mode": "REPEATED"
+  },
+  {
+    "name": "out_links",
+    "type": "INT64",
+    "mode": "REPEATED"
+  },
+  {
+    "name": "num_in_links",
+    "type": "INT64"
+  },
+  {
+    "name": "num_out_links",
+    "type": "INT64"
+  }
+]

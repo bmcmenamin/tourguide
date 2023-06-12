@@ -1,4 +1,9 @@
-runtime: python37
+runtime: python311
+
+# Set App Engine instance class
+# See https://cloud.google.com/appengine/docs/standard/#instance_classes
+instance_class: F1
+
 
 handlers:
   # This configures Google App Engine to serve the files in the app's static
@@ -12,7 +17,12 @@ handlers:
 - url: /.*
   script: auto
 
-instance_class: F4
+- url: /static/.*
+  static_dir: static
 
 automatic_scaling:
   max_concurrent_requests: 10
+
+# set envvars from local file not in the repo
+includes:
+  - env_vars.yaml
