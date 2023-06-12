@@ -1,4 +1,6 @@
-import wtf from 'wtf_wikipedia'
+import wtf from 'wtf_wikipedia';
+import plugin from 'wtf-plugin-classify'
+const extendedWtf = wtf.extend(plugin);
 
 
 function parseLinks(doc) {
@@ -9,29 +11,10 @@ function parseLinks(doc) {
       'External links'
   ]
 
-  const placeTokens = [
-      'town',
-      'towns',
-      'city',
-      'cities',
-      'county',
-      'counties',
-      'country',
-      'countries',
-      'municipality',
-      'municipalities',
-      'region',
-      'regions',
-      'place',
-      'places',
-      'location',
-      'locations',
-  ]
-
-
   var output = {
     'title': Buffer.from(doc.title(), 'utf-8').toString(),
     'pageID': doc.pageID(),
+    'page_type': doc.classify()['type']
   }
 
   const redirectLinks = (
@@ -60,22 +43,12 @@ function parseLinks(doc) {
   const outlinks = [...new Set([...redirectLinks, ...sectionLinks, ...infoboxLinks])]
   output['outlinks'] = outlinks.map(s => Buffer.from(s, 'utf-8').toString())
 
-
-  const catTokens = (
-      doc.categories()
-      .map(s => Buffer.from(s, 'utf-8').toString())
-      .flatMap(s => s.toLowerCase().split(/\b\s+(?!$)/))
-  )
-
-  output['has_place_category'] = catTokens.some(v => placeTokens.includes(v))
-
-
   return output
 
 }
 
 
-let doc = await wtf.fetch('Clean Needle Technique')
-//let doc = await wtf.fetch(4151174, {follow_redirects: false})
+let doc = await extendedWtf.fetch('Clean Needle Technique')
+//let doc = await extendedWtf.fetch('Mike Kappus')
 const output = parseLinks(doc)
 console.log(output)
