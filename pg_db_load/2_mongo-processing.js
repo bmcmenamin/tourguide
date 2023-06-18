@@ -5,7 +5,13 @@ use enwiki
 // Create title_pageid
 db.title_pageid.drop()
 db.pages.aggregate([
-    {$project: {"title": 1, "page_id": {$toInt: "$pageID"}, "hasPlaceCategory": "$has_place_category"}},
+    {$project: {
+        "title": 1,
+        "page_id": {$toInt: "$pageID"},
+        "is_disambig": "$is_disambig",
+        "page_typeroot": "$page_typeroot",
+        "page_type": "$page_type"
+    }},
     {$out: "title_pageid"}
 ])
 
@@ -70,7 +76,9 @@ db.title_pageid.aggregate([
         "_id": "$page_id",
         "page_id": "$page_id",
         "title": 1,
-        "has_place_category": "$hasPlaceCategory",
+        "is_disambig": "$is_disambig",
+        "page_type": 1,
+        "page_typeroot": 1,
         "in_links": {$reduce: {
             input: "$joined_in_links.in_links",
             initialValue: [],
@@ -86,7 +94,9 @@ db.title_pageid.aggregate([
         "_id": 1,
         "page_id": 1,
         "title": 1,
-        "has_place_category": 1,
+        "is_disambig": 1,
+        "page_type": 1,
+        "page_typeroot": 1,
         "in_links": 1,
         "out_links": 1,
         "num_in_links": {$ifNull: [{$size: "$in_links"}, 0]},

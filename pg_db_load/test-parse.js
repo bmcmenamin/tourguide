@@ -1,7 +1,6 @@
 import wtf from 'wtf_wikipedia';
-import plugin from 'wtf-plugin-classify'
-const extendedWtf = wtf.extend(plugin);
-
+import wtfClassify from 'wtf-plugin-classify';
+wtf.extend(wtfClassify)
 
 function parseLinks(doc) {
 
@@ -14,6 +13,8 @@ function parseLinks(doc) {
   var output = {
     'title': Buffer.from(doc.title(), 'utf-8').toString(),
     'pageID': doc.pageID(),
+    'is_disambig': doc.isDisambiguation(),
+    'page_typeroot': doc.classify()['root'],
     'page_type': doc.classify()['type']
   }
 
@@ -48,7 +49,7 @@ function parseLinks(doc) {
 }
 
 
-let doc = await extendedWtf.fetch('Clean Needle Technique')
-//let doc = await extendedWtf.fetch('Mike Kappus')
+//let doc = await wtf.fetch('Clean Needle Technique')
+let doc = await wtf.fetch('Jefferson')
 const output = parseLinks(doc)
 console.log(output)

@@ -46,6 +46,7 @@ current_nodes AS (
         `pages.links`
     WHERE
         page_id IN UNNEST(@nodes)
+        AND page_typeroot IS NOT NULL
 )
 
 , new_neighbors AS (
@@ -61,13 +62,16 @@ current_nodes AS (
 SELECT
     page_id
     , title
-    , has_place_category
+    , page_type
+    , page_typeroot
     , num_in_links
     , num_out_links
     , num_in_links + num_out_links AS degree
 FROM
     `pages.links`
     JOIN new_neighbors USING(page_id)
+WHERE
+    NOT is_disambig
 """
 
 
@@ -75,7 +79,9 @@ QUERY_NODES = """
 SELECT
     page_id
     , title
-    , has_place_category
+    , page_type
+    , page_typeroot
+    , is_disambig
     , num_in_links
     , num_out_links
     , num_in_links + num_out_links AS degree
@@ -90,7 +96,7 @@ WITH dists AS (
         gt.page_id
         , ST_DISTANCE(geog, ST_GEOGPOINT(@lon, @lat)) AS d
     FROM pages.geotags AS gt
-    WHERE ST_WITHIN(geog, ST_BUFFER(ST_GEOGPOINT(@lon, @lat), 10000 / 2))
+    WHERE ST_WITHIN(geog, ST_BUFFER(ST_GEOGPOINT(@lon, @lat), (@radius / 2)))
 )
 
 SELECT page_id
@@ -121,9 +127,13 @@ WITH new_neighbors AS (
         JOIN `pages.links` AS l ON l.page_id = new_page_id
         LEFT JOIN `pages.geotags` AS gt ON gt.page_id = new_page_id
     WHERE
-        (l.has_place_category OR gt.page_id IS NOT NULL)
+        (
+            (l.page_typeroot = "Place" AND COALESCE(l.page_type, "Place") <> "Place")
+            OR gt.page_id IS NOT NULL
+        )
         AND l.num_in_links < @max_in_degree
         AND l.num_out_links < @max_out_degree
+        AND NOT l.is_disambig
 )
 
 SELECT
@@ -175,13 +185,14 @@ def query_edges(bq: BigQueryInterface, nodes: List[int]) -> pd.DataFrame:
     return bq.query(QUERY_EDGES, job_config=job_config)
 
 
-def query_nearby(bq: BigQueryInterface, lat: float, lon: float, num_to_keep: Optional[int] = 15) -> pd.DataFrame:
+def query_nearby(bq: BigQueryInterface, lat: float, lon: float, num_to_keep: int = 15, radius: int = 50000) -> pd.DataFrame:
 
     job_config = bigquery.QueryJobConfig(
         query_parameters=[
             bigquery.ScalarQueryParameter("num_to_keep", "INT64", num_to_keep),
             bigquery.ScalarQueryParameter("lat", "FLOAT64", lat),
-            bigquery.ScalarQueryParameter("lon", "FLOAT64", lon)
+            bigquery.ScalarQueryParameter("lon", "FLOAT64", lon),
+            bigquery.ScalarQueryParameter("radius", "FLOAT64", radius)
         ]
     )
 
