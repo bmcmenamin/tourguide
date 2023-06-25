@@ -7,6 +7,7 @@ db.title_pageid.drop()
 db.pages.aggregate([
     {$project: {
         "title": 1,
+        "titleCapitalized": {$toUpper: "$title"},
         "page_id": {$toInt: "$pageID"},
         "is_disambig": "$is_disambig",
         "page_typeroot": "$page_typeroot",
@@ -16,32 +17,51 @@ db.pages.aggregate([
 ])
 
 db.title_pageid.createIndex({"title": 1}, {unique: true})
+db.title_pageid.createIndex({"titleCapitalized": 1}, {unique: false})
 db.title_pageid.createIndex({"page_id": 1}, {unique: true})
 db.title_pageid.estimatedDocumentCount()
 
 // Create links
 db.links.drop()
-db.in_links.drop()
-db.out_links.drop()
-
 db.pages.aggregate([
-    {$project: {"page_id": {$toInt: "$pageID"}, "outlinks": 1}},
+    {$project: {
+        "page_id": {$toInt: "$pageID"},
+        "outlinks": 1
+    }},
     {$unwind: {"path": "$outlinks"}},
+    {$project: {
+        "page_id": 1,
+        "outlinks": 1,
+        "outlinksCapitalized": {$toUpper: "$outlinks"}
+    }},
     {$lookup: {
         "from": "title_pageid",
-        "localField": "outlinks",
-        "foreignField": "title", 
-        "as": "joinedOutput"
+        "localField": "outlinksCapitalized",
+        "foreignField": "titleCapitalized", 
+        "as": "joinedOutputCapitalized"
     }},
-    {$project: {"from_page_id": "$page_id", "to_page_id": "$joinedOutput.page_id"}},
+    {$project: {
+        "from_page_id": "$page_id",
+        "outlinks": 1,
+        "to_page_id": "$joinedOutputCapitalized.page_id"
+    }},
     {$unwind: {"path": "$to_page_id"}},
-    {$project: {"_id": {$concat: [{$toString: "$from_page_id"}, "-", {$toString: "$to_page_id"}]}, "from_page_id": 1, "to_page_id": 1}},
+    {$group: {
+        "_id": {$concat: [{$toString: "$from_page_id"}, "-", {$toString: "$to_page_id"}]},
+        "outlinks": {"$first": "$outlinks"},
+        "from_page_id": {"$first": "$from_page_id"},
+        "to_page_id": {"$first": "$to_page_id"},
+    }},
     {$out: "links"}
 ])
+
+db.links.createIndex({"from_page_id": 1}, {unique: false})
+db.links.createIndex({"to_page_id": 1}, {unique: false})
 db.links.estimatedDocumentCount()
 
 
 // Create out_links
+db.out_links.drop()
 db.links.aggregate([
     {$group: {"_id": "$from_page_id", "out_links": {$addToSet: "$to_page_id"}}},
     {$out: "out_links"}
@@ -50,6 +70,7 @@ db.out_links.estimatedDocumentCount()
 
 
 // Create in_links
+db.in_links.drop()
 db.links.aggregate([
     {$group: {"_id": "$to_page_id", "in_links": {$addToSet: "$from_page_id"}}},
     {$out: "in_links"}

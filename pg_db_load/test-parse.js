@@ -50,6 +50,6 @@ function parseLinks(doc) {
 
 
 //let doc = await wtf.fetch('Clean Needle Technique')
-let doc = await wtf.fetch('Jefferson')
+let doc = await wtf.fetch('Roky Erickson')
 const output = parseLinks(doc)
 console.log(output)

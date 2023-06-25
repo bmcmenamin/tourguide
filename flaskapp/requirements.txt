@@ -2,5 +2,5 @@ Flask>=2.2.2
 networkx
 requests
 requests-oauthlib
-google-cloud-bigquery
+google-cloud-bigquery==3.11.2
 pandas

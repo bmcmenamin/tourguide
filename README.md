@@ -2,21 +2,9 @@
 
 This repo contains was inspired by my love of reading [historical markers](https://www.hmdb.org/) and the power of Wikipedia graph traversals like [Six-degrees of Wikipedia](https://github.com/jwngr/sdow).
 
-Using existing APIs maintained by Wikipedia, this app finds pages that connect your current location to whatever you're interested in. It is configured to be easily deployed via Google App Engine so you can spin up your own instance that will run on-demand.
-
-
-For example:
-Let's say that you're walking through [Prospect Park, Brooklyn](https://en.wikipedia.org/wiki/Prospect_Park_(Brooklyn)) and you're really in to [_Star Trek_](https://en.wikipedia.org/wiki/Star_Trek:_The_Original_Series). This app will compare your current location to geo-coordinates on Wikipedia and figure out how those pages connect to the things you're interested in (i.e., _Star Trek_). Combining the geo-location with the Wikipedia graph search will surface fun facts that would normally take a lot of digging to surface. Such as:
-
-* The special effects for Star Trek were created by [Linwood G. Dunn](https://en.wikipedia.org/wiki/Linwood_G._Dunn) that attended a nearby [high school](John_Jay_Educational_Campus_(Brooklyn))
-* [Patrick Stewart](https://en.wikipedia.org/wiki/Patrick_Stewart) lives in nearby [Park Slope](https://en.wikipedia.org/wiki/Park_Slope)
-* [Isaac Asimov](https://en.wikipedia.org/wiki/Isaac_Asimov) grew up in nearby [Windsor Terrace](https://en.wikipedia.org/wiki/Windsor_Terrace,_Brooklyn)
-
-
-## Usage
-
-This is set up to run using Google App Engine, and there is an instance running [here](https://coastal-epigram-162302.appspot.com/) (note: this may be taken down at any time because I don't want to pay for it forever).
-
-To run a search, provide a semicolon-delimited list of wikipedia page titles and then click the search icon. Wait. Then browse the list of wikipages to find fun things.
-
-It'd be nice if you'd see updates while it's searching, but I'm done playing with JavaScript.
+# TODO
+* update ingestion to drop 'cited works' section
+  * or: include links grouped by section for flexible querying
+* limit topic-expansion to smaller neighboring nodes?
+* prevent places from being bridge nodes?
+* how to prevent the 'austin problem'
