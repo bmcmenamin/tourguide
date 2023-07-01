@@ -7,7 +7,8 @@ function parseLinks(doc) {
   const badSectionNames = [
       'Notes',
       'References',
-      'External links'
+      'External links',
+      'Cited Works'
   ]
 
   var output = {
@@ -26,7 +27,7 @@ function parseLinks(doc) {
       .map(s => s.page)
   )
 
-  const sectionLinks = (
+  const allSectionLinks = (
       doc.sections()
       .filter(s => !badSectionNames.includes(s.name))
       .flatMap(s => s.links())
@@ -41,7 +42,15 @@ function parseLinks(doc) {
       .map(l => l.json().page)
   )
 
-  const outlinks = [...new Set([...redirectLinks, ...sectionLinks, ...infoboxLinks])]
+  const dataBySection = (
+      doc.sections()
+      .filter(s => !badSectionNames.includes(s.name))
+      .map(s => s.name -> s.json())
+  )
+
+  print(dataBySection)
+
+  const outlinks = [...new Set([...redirectLinks, ...allSectionLinks, ...infoboxLinks])]
   output['outlinks'] = outlinks.map(s => Buffer.from(s, 'utf-8').toString())
 
   return output

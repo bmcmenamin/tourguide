@@ -16,7 +16,6 @@ const path_to_file = `${working_dir}/wikidump/${lang}wiki-${dumpdate}-pages-arti
 
 
 function parseLinks(doc) {
-  
 
   const badSectionNames = [
       'Notes',
