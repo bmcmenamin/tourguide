@@ -36,5 +36,10 @@
   {
     "name": "num_out_links",
     "type": "INT64"
+  },
+  {
+      "name": "raw_text",
+      "type": "STRING",
+      "mode": "NULLABLE"
   }
 ]

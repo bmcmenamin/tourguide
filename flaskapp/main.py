@@ -1,5 +1,5 @@
 """
-    List nearby places
+    List interesting nearby places
 """
 
 from flask import (

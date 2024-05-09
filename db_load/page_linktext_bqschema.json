@@ -1,0 +1,15 @@
+[
+  {
+    "name": "from_page_id",
+    "type": "INT64"
+  },
+  {
+    "name": "to_page_id",
+    "type": "INT64"
+  },
+  {
+    "name": "links",
+    "type": "STRING",
+    "mode": "REPEATED"
+  }
+]

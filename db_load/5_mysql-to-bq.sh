@@ -1,5 +1,5 @@
 LANG=en 
-DUMP_DATE=20230601
+DUMP_DATE=20240220
 
 
 rm -f ~/wiki/wikidump/${LANG}wiki_${DUMP_DATE}_geotags.json
