@@ -6,7 +6,7 @@ mkdir ~/wiki/wikidump/
 
 
 LANG=en  # af
-DUMP_DATE=20240220
+DUMP_DATE=20240501
 
 DUMP_HTTPS=https://dumps.wikimedia.org/${LANG}wiki/${DUMP_DATE}/
 echo $DUMP_HTTPS

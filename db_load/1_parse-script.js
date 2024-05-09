@@ -10,7 +10,7 @@ import dumpster from 'dumpster-dive'
 
 
 const lang =  'en'; // 'af';  // 
-const dumpdate = 20240220;
+const dumpdate = 20240501;
 const working_dir = '/Users/mcmenamin/wiki/'
 const path_to_file = `${working_dir}/wikidump/${lang}wiki-${dumpdate}-pages-articles.xml`
 //const path_to_file = `${working_dir}/wikidump/test.xml`

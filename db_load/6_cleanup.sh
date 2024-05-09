@@ -1,5 +1,5 @@
 LANG=en
-DUMP_DATE=20240220
+DUMP_DATE=20240501
 
 # drop dump files
 rm -f /Users/mcmenamin/wiki/wikidump/${LANG}wiki-${DUMP_DATE}-*
