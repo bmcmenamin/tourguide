@@ -30,18 +30,16 @@ db.pages.aggregate([
         "outlinks": 1
     }},
     {$unwind: {"path": "$outlinks"}},
-    {$project: {
+    {$group: {
         "_id": {$concat: [{$toString: "$page_id"}, "-", {$toString: "$outlinks"}]},
-        "from_page_id": "$page_id",
-        "outlink": "$outlinks",
-        "outlinkCapitalized": {$toUpper: "$outlinks"},
+        "from_page_id": {"$first": "$page_id"},
+        "outlink": {"$first": "$outlinks"},
+        "outlinkCapitalized": {"$first": {$toUpper: "$outlinks"}},
     }},
     {$out: "links0"}
 ])
 db.links0.createIndex({"outlinkCapitalized": 1}, {unique: false})
 db.links0.estimatedDocumentCount()
-
-
 
 
 db.tmp_title_pageid.drop()
@@ -56,6 +54,7 @@ db.title_pageid.aggregate([
     }},
     {$out: "tmp_title_pageid"}
 ])
+db.tmp_title_pageid.estimatedDocumentCount()
 
 
 // Create links
@@ -112,56 +111,77 @@ db.in_links.estimatedDocumentCount()
 // join into final table
 db.page_links.drop()
 db.title_pageid.aggregate([
-    {$lookup: {
+    { $lookup: {
         "from": "out_links",
         "localField": "page_id",
-        "foreignField": "_id", 
+        "foreignField": "_id",
         "as": "joined_out_links"
     }},
-    {$lookup: {
+    { $lookup: {
         "from": "in_links",
         "localField": "page_id",
-        "foreignField": "_id", 
+        "foreignField": "_id",
         "as": "joined_in_links"
     }},
-    {$project: {
+    { $group: {
         "_id": "$page_id",
-        "page_id": "$page_id",
-        "title": 1,
-        "is_disambig": "$is_disambig",
-        "page_type": 1,
-        "page_typeroot": 1,
-        "in_links": {$reduce: {
-            input: "$joined_in_links.in_links",
-            initialValue: [],
-            in: {$concatArrays: ["$$value", "$$this"]}
-        }},
-        "out_links": {$reduce: {
-            input: "$joined_out_links.out_links",
-            initialValue: [],
-            in: {$concatArrays: ["$$value", "$$this"]}
-        }},
-        "raw_text": "$raw_text"
+        "title": { "$first": "$title" },
+        "is_disambig": { "$first": "$is_disambig" },
+        "page_type": { "$first": "$page_type" },
+        "page_typeroot": { "$first": "$page_typeroot" },
+        "in_links": { $push: "$joined_in_links.in_links" },
+        "out_links": { $push: "$joined_out_links.out_links" },
+        "raw_text": { "$first": "$raw_text" }
     }},
-    {$project: {
+    { $project: {
         "_id": 1,
         "page_id": 1,
         "title": 1,
         "is_disambig": 1,
         "page_type": 1,
         "page_typeroot": 1,
+        "raw_text": 1,
+        "in_links": { $ifNull: [
+                                { $arrayElemAt: [
+                                                { $reduce: {
+                                                    input: "$in_links",
+                                                    initialValue: [],
+                                                    in: { $setUnion: ["$$value", "$$this"] }
+                                                }}
+                                                , 0]
+                                }
+                                , [] ]
+        },
+        "out_links": { $ifNull: [
+                                { $arrayElemAt: [
+                                                { $reduce: {
+                                                    input: "$out_links",
+                                                    initialValue: [],
+                                                    in: { $setUnion: ["$$value", "$$this"] }
+                                                }}
+                                                , 0]
+                                }
+                                , [] ]
+        }
+    }},
+    { $project: {
+        "_id": 1,
+        "page_id": 1,
+        "title": 1,
+        "is_disambig": 1,
+        "page_type": 1,
+        "page_typeroot": 1,
+        "raw_text": 1,
         "in_links": 1,
         "out_links": 1,
-        "num_in_links": {$ifNull: [{$size: "$in_links"}, 0]},
-        "num_out_links": {$ifNull: [{$size: "$out_links"}, 0]},
-        "raw_text": "$raw_text"
+        "num_in_links": { $size: "$in_links" },
+        "num_out_links": { $size: "$out_links" }
     }},
-    {$out: "page_links"}
+    { $out: "page_links" }
 ])
 db.page_links.estimatedDocumentCount()
 
-
-// cleanup
-db.title_pageid.drop()
-db.in_links.drop()
-db.out_links.drop()
+//// cleanup
+//db.title_pageid.drop()
+//db.in_links.drop()
+//db.out_links.drop()

@@ -38,8 +38,7 @@
     "type": "INT64"
   },
   {
-      "name": "raw_text",
-      "type": "STRING",
-      "mode": "NULLABLE"
+    "name": "raw_text",
+    "type": "STRING"
   }
 ]

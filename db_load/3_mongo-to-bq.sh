@@ -2,7 +2,6 @@ LANG=en
 DUMP_DATE=20240501
 mkdir ~/wiki/wikidump/${LANG}wiki_${DUMP_DATE}_split
 
-
 mongoexport \
     --host 127.0.0.1:27017 \
     -vv \
@@ -38,9 +37,9 @@ bq load \
     --encoding=UTF-8 \
     --replace \
     --project_id tourguide-388723 \
+    --schema=/Users/mcmenamin/Repos/tourguide/db_load/page_links_bqschema.json \
     "pages.links" \
-    "gs://tourguide-parsed/${LANG}wiki_${DUMP_DATE}/parsedlinks/*" \
-    "page_links_bqschema.json"
+    "gs://tourguide-parsed/${LANG}wiki_${DUMP_DATE}/parsedlinks/*"
 
 bq update \
     --project_id tourguide-388723 \
