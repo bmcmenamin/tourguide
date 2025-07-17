@@ -2,74 +2,16 @@
 
 window.initApp = function() {
   // Fetch all data and initialize the visualization
-  Promise.all([
-    fetch('/api/nodes').then(r => r.json()),
-    fetch('/api/latlon').then(r => r.json()),
-    fetch('/api/links').then(r => r.json())
-  ]).then(([nodes, latlon, links]) => {
-    // Normalize all IDs to numbers
-    nodes.forEach(n => n.id = Number(n.id));
-    latlon.forEach(l => l.id = Number(l.id));
-    links = links.map(l => ({
-      source: Number(l.source ?? l.node_a),
-      target: Number(l.target ?? l.node_b),
-      strength: l.strength ?? l.weight
-    }));
-
-    // Map from id to latlon
-    const latlonMap = new Map(latlon.map(d => [d.id, d]));
-
-    // Build adjacency list for all nodes
-    const adjacency = new Map();
-    links.forEach(l => {
-      if (!adjacency.has(l.source)) adjacency.set(l.source, []);
-      if (!adjacency.has(l.target)) adjacency.set(l.target, []);
-      adjacency.get(l.source).push(l.target);
-      adjacency.get(l.target).push(l.source);
-    });
-
-    // Find all nodes connected (directly or indirectly) to a geo node
-    const geoNodeIds = new Set(latlon.map(d => d.id));
-    const connected = new Set();
-    const queue = Array.from(geoNodeIds);
-    while (queue.length > 0) {
-      const current = queue.shift();
-      if (connected.has(current)) continue;
-      connected.add(current);
-      const neighbors = adjacency.get(current) || [];
-      for (const neighbor of neighbors) {
-        if (!connected.has(neighbor)) {
-          queue.push(neighbor);
-        }
-      }
-    }
-
-    // Only include nodes that are geo nodes or connected to a geo node
-    const filteredNodes = nodes.filter(n => connected.has(n.id));
-    const geoNodes = filteredNodes.filter(n => latlonMap.has(n.id));
-    const graphNodes = filteredNodes.filter(n => !latlonMap.has(n.id));
-
-    // Debug logging
-    console.log('All nodes:', nodes);
-    console.log('Filtered nodes:', filteredNodes);
-    console.log('Geo nodes:', geoNodes);
-    console.log('Graph nodes:', graphNodes);
-    console.log('Links:', links);
-
-    // Prepare graph data: only include links where both nodes are in filteredNodes
-    const nodeIds = new Set(filteredNodes.map(n => n.id));
-    const filteredLinks = links.filter(l => nodeIds.has(l.source) && nodeIds.has(l.target));
+  fetch('/api/nodes').then(r => r.json()).then(({ geoNodes, graphNodes, latlonMap, filteredLinks, allNodes }) => {
+    // Convert latlonMap from object to Map if needed
+    const latlonMapObj = latlonMap instanceof Map ? latlonMap : new Map(Object.entries(latlonMap).map(([k, v]) => [Number(k), v]));
 
     // Initialize map and graph
-    initMapAndGraph(geoNodes, graphNodes, latlonMap, filteredLinks, nodes);
+    initMapAndGraph(geoNodes, graphNodes, latlonMapObj, filteredLinks, allNodes);
   });
 
   function initMapAndGraph(geoNodes, graphNodes, latlonMap, links, allNodes) {
     try {
-      // Debug logs
-      console.log('geoNodes:', geoNodes);
-      console.log('graphNodes:', graphNodes);
-      console.log('links:', links);
 
       // 1. Initialize Leaflet map
       const map = L.map('map', {
@@ -88,11 +30,16 @@ window.initApp = function() {
 
       // 2. Fit map to geoNodes
       if (geoNodes.length > 0) {
-        const bounds = L.latLngBounds(geoNodes.map(n => {
-          const { lat, lon } = latlonMap.get(n.id);
-          return [lat, lon];
-        }));
-        map.fitBounds(bounds, { padding: [50, 50] });
+        const boundsPoints = geoNodes
+          .map(n => latlonMap.get(n.id))
+          .filter(geo => geo && typeof geo.lat === 'number' && typeof geo.lon === 'number')
+          .map(geo => [geo.lat, geo.lon]);
+        if (boundsPoints.length > 0) {
+          const bounds = L.latLngBounds(boundsPoints);
+          map.fitBounds(bounds, { padding: [50, 50] });
+        }
+      } else {
+        map.setView([0, 0], 2);
       }
 
       // 3. Prepare D3 force-directed graph for all connected nodes (geo + graph)
@@ -112,15 +59,17 @@ window.initApp = function() {
       // All nodes in the force simulation
       const allSimNodes = geoNodes.concat(graphNodes);
 
+      const nodeRadius = 12;
+
       // D3 simulation
       const simulation = d3.forceSimulation(allSimNodes)
-        .force('link', d3.forceLink(links).id(d => d.id).distance(d => 100 / (d.strength || 1)))
-        .force('charge', d3.forceManyBody().strength(-200))
-        .force('center', d3.forceCenter(width / 2, height / 2))
+        .force('link', d3.forceLink(links).id(d => d.id).distance(d => 1 / (d.strength || 1)))
+        .force('collide', d3.forceCollide(nodeRadius * 1.01).strength(0.7))
         .on('tick', ticked);
 
       // Draw links
-      const link = svg.append('g')
+      const g = svg.append('g').attr('class', 'leaflet-zoom-hide');
+      const link = g.append('g')
         .attr('stroke', '#999')
         .attr('stroke-opacity', 0.6)
         .selectAll('line')
@@ -129,19 +78,19 @@ window.initApp = function() {
         .attr('stroke-width', d => Math.sqrt(d.strength || 1));
 
       // Draw nodes: allSimNodes, color by type
-      const node = svg.append('g')
+      const node = g.append('g')
         .attr('stroke', '#fff')
         .attr('stroke-width', 1.5)
         .selectAll('circle')
         .data(allSimNodes)
         .join('circle')
-        .attr('r', 12)
+        .attr('r', nodeRadius)
         .attr('fill', d => latlonMap.has(d.id) ? '#4CAF50' : '#0074D9') // green for geo, blue for graph
         .attr('class', 'd3-node')
         .call(drag(simulation));
 
       // Node labels: allSimNodes
-      const label = svg.append('g')
+      const label = g.append('g')
         .selectAll('text')
         .data(allSimNodes)
         .join('text')
@@ -154,20 +103,34 @@ window.initApp = function() {
       // Synchronize geo node positions with map
       function updateGeoNodePositions() {
         geoNodes.forEach(node => {
-          const { lat, lon } = latlonMap.get(node.id);
-          const point = map.latLngToLayerPoint([lat, lon]);
-          node.x = point.x;
-          node.y = point.y;
+          const geo = latlonMap.get(node.id);
+          if (geo) {
+            const { lat, lon } = geo;
+            const point = map.latLngToLayerPoint([lat, lon]);
+            node.x = point.x;
+            node.y = point.y;
+            node.fx = point.x; // Pin to projected position
+            node.fy = point.y;
+            node.vx = 0; // Stop any momentum
+            node.vy = 0;
+          }
         });
       }
+
+      // (Undo offset-based anchoring: do nothing here)
 
       // Update overlay position/size and reproject all node positions
       function updateOverlay() {
         // Resize SVG to match map container
         const mapSize = map.getSize();
         svg.attr('width', mapSize.x).attr('height', mapSize.y);
+
         // Reproject geo node positions
         updateGeoNodePositions();
+
+        // (Undo offset-based anchoring: do nothing here)
+        const topLeft = map.latLngToLayerPoint(map.getBounds().getNorthWest());
+
         // Update D3 elements
         link
           .attr('x1', d => d.source.x)
@@ -180,6 +143,9 @@ window.initApp = function() {
         label
           .attr('x', d => d.x)
           .attr('y', d => d.y - 18);
+
+        // Kick the force simulation to let graph nodes resettle
+        simulation.alpha(0.7).restart();
       }
 
       // Drag behavior
@@ -195,8 +161,12 @@ window.initApp = function() {
         }
         function dragended(event, d) {
           if (!event.active) simulation.alphaTarget(0);
-          d.fx = null;
-          d.fy = null;
+          // Only unpin if not a geo node
+          if (!latlonMap.has(d.id)) {
+            d.fx = null;
+            d.fy = null;
+          }
+          // For geo nodes, fx/fy will be reset on next tick by updateGeoNodePositions
         }
         return d3.drag()
           .on('start', dragstarted)
@@ -206,7 +176,9 @@ window.initApp = function() {
 
       // Update positions on tick
       function ticked() {
+        // Always update geo node positions first
         updateGeoNodePositions();
+        
         link
           .attr('x1', d => d.source.x)
           .attr('y1', d => d.source.y)
