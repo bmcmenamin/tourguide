@@ -1,0 +1,17 @@
+[
+    {
+        "node_a": 1,
+        "node_b": 2,
+        "weight": 1
+    },
+    {
+        "node_a": 2,
+        "node_b": 3,
+        "weight": 1
+    },
+    {
+        "node_a": 2,
+        "node_b": 5,
+        "weight": 1
+    }
+]
