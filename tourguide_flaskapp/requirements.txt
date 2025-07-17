@@ -1,0 +1,6 @@
+Flask>=2.2.2
+networkx
+requests
+requests-oauthlib
+google-cloud-bigquery==3.23.0
+pandas

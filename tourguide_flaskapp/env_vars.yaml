@@ -1,0 +1,4 @@
+env_variables:
+  BUCKET_NAME: tourguide-388712.appspot.com
+  GCLOUD_PROJECT_ID: 623999824378
+

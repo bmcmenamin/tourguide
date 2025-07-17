@@ -1,0 +1,10 @@
+cron:
+##- description: "Cache Most popular Wikipedia pages"
+##  url: /update-popular
+##  target: update-cache
+##  schedule: every 24 hours
+
+##- description: "Cache random Wikipedia pages"
+##  url: /update-random
+##  target: update-cache
+##  schedule: every 5 minutes

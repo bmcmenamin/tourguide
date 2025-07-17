@@ -1,6 +1,6 @@
 [
   {
-    "name": "page_id",
+    "name": "_id",
     "type": "INT64"
   },
   {

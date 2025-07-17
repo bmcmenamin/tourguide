@@ -1,0 +1,45 @@
+h1 {
+    font-family: monospace, monospace;
+    max-width: 140em;
+    font-size: 2.5em;
+    font-weight: normal;
+    color: black;
+    color: #333
+}
+
+body {
+    margin: 0 auto;
+    max-width: 110em;
+    font-family: monospace, monospace;
+    line-height: 1.5;
+    padding: 2em 1em;
+    color: #555;
+}
+
+button {
+    font-size: 3.0em;
+    padding: 8px 10px;
+    cursor: pointer;
+    text-decoration: none;
+    color: white;
+    border-radius: 5px;
+    background-color: #7c7ce0;
+}
+
+.btn {
+    background-color: #d3d3d3;
+    border-color: #FFFFFF;
+}
+
+textarea {
+    resize: none;
+    margin-bottom:1%;
+}
+
+.list-group {
+    padding: 1px 3px
+}
+
+.list-group-item {
+    padding: 1px 35px
+}

@@ -105,6 +105,6 @@ venv.bak/
 
 .idea/
 node_modules/
-flaskapp/libs/
+tourguide_flaskapp/libs/
 package-lock.json
 creds/

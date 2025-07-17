@@ -135,7 +135,6 @@ db.title_pageid.aggregate([
     }},
     { $project: {
         "_id": 1,
-        "page_id": 1,
         "title": 1,
         "is_disambig": 1,
         "page_type": 1,
@@ -166,7 +165,6 @@ db.title_pageid.aggregate([
     }},
     { $project: {
         "_id": 1,
-        "page_id": 1,
         "title": 1,
         "is_disambig": 1,
         "page_type": 1,

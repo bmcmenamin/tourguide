@@ -47,7 +47,8 @@ bq query \
     --nouse_legacy_sql \
     'UPDATE `pages.geotags` SET geog = ST_GEOGPOINT(lon, lat) WHERE TRUE;'
 
+
 bq update \
     --project_id tourguide-388723 \
-    --clustering_fields geog \
+    --clustering_fields page_id \
     pages.geotags
